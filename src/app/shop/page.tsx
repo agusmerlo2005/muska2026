@@ -1,5 +1,8 @@
 'use client';
 
+// Esta línea es la que agregamos para que Vercel pase el build sin errores
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import ProductCard from '@/components/ui/ProductCard';
