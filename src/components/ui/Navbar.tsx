@@ -3,76 +3,101 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ShoppingBag, Menu, X } from 'lucide-react';
-import { useCart } from '@/features/cart/store';
+import { useCart } from '@/hooks/useCart';
 import { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { items, openCart } = useCart();
+  const { onOpen, cart } = useCart();
   const [mounted, setMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Evita errores de hidratación (Zustand necesita esto en Next.js)
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
+  const totalItems = mounted ? cart.reduce((acc, item) => acc + item.quantity, 0) : 0;
 
-  // Estilo dinámico para los links
-  const linkStyle = (path: string) => 
-    `transition-all duration-300 hover:text-black tracking-[0.3em] ${
-      pathname === path 
-        ? 'text-black font-black border-b-2 border-black pb-1' 
-        : 'text-gray-400 font-medium'
-    }`;
+  const NavLink = ({ href, children }: { href: string; children: React.ReactNode }) => {
+    const isActive = pathname === href;
+    return (
+      <Link href={href} className="relative group py-2">
+        <span className={`text-[10px] uppercase tracking-[0.2em] transition-colors duration-300 ${
+          isActive ? 'text-black font-bold' : 'text-gray-400 group-hover:text-black'
+        }`}>
+          {children}
+        </span>
+        <span className={`absolute bottom-0 left-0 h-[1.5px] bg-black transition-all duration-300 ${
+          isActive ? 'w-full' : 'w-0 group-hover:w-full'
+        }`} />
+      </Link>
+    );
+  };
 
   return (
-    <nav className="fixed top-0 z-[100] w-full border-b border-gray-100 bg-white/80 backdrop-blur-md px-6 py-6">
-      <div className="mx-auto flex max-w-7xl items-center justify-between">
+    <motion.nav 
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      /* Clases de blindaje: 
+         - bg-white: 100% opaco para tapar el texto de atrás.
+         - z-[100]: Máxima prioridad de capa.
+         - border-b: Separación sutil.
+      */
+      className="fixed top-0 left-0 right-0 z-[100] w-full border-b border-gray-100 bg-white px-6 py-6"
+    >
+      <div className="mx-auto max-w-7xl flex items-center justify-between">
         
-        {/* IZQUIERDA: Navegación Principal */}
-        <div className="hidden md:flex items-center gap-10 text-[10px] uppercase">
-          <Link href="/" className={linkStyle('/')}>Inicio</Link>
-          <Link href="/shop" className={linkStyle('/shop')}>Tienda</Link>
-          <Link href="/nosotros" className={linkStyle('/nosotros')}>Nosotros</Link>
+        {/* IZQUIERDA */}
+        <div className="hidden lg:flex items-center gap-8 flex-1">
+          <NavLink href="/">Inicio</NavLink>
+          <NavLink href="/shop">Tienda</NavLink>
+          <NavLink href="/nosotros">Nosotros</NavLink>
         </div>
 
-        {/* CENTRO: Logo Identidad MUSKA */}
-        <Link href="/" className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
-          <span className="text-2xl md:text-3xl font-black tracking-[-0.05em] text-black leading-none">
-            MUSKA
-          </span>
-          <span className="text-[7px] tracking-[0.5em] uppercase text-gray-400 font-bold mt-1">
-            Interiorismo
-          </span>
-        </Link>
+        {/* CENTRO */}
+        <div className="flex-none">
+          <Link href="/" className="flex flex-col items-center group transition-transform duration-300 hover:scale-105">
+            <span className="text-2xl md:text-3xl font-black tracking-[-0.05em] text-black leading-none uppercase">
+              MUSKA
+            </span>
+            <span className="text-[7px] tracking-[0.4em] uppercase text-gray-400 font-bold mt-1">
+              Interiorismo
+            </span>
+          </Link>
+        </div>
 
-        {/* DERECHA: Carrito y Admin */}
-        <div className="flex items-center gap-4">
+        {/* DERECHA */}
+        <div className="flex-1 flex items-center justify-end gap-5">
           <Link 
-            href="/admin/products" 
-            className="hidden md:block text-[9px] font-bold uppercase tracking-widest text-gray-300 hover:text-black transition-colors"
+            href="/admin" 
+            className="hidden sm:block text-[9px] font-bold uppercase tracking-widest text-gray-300 hover:text-black transition-all"
           >
             Panel
           </Link>
 
           <button 
-            onClick={openCart}
-            className="relative p-2 group"
-            aria-label="Abrir Carrito"
+            onClick={onOpen} 
+            className="relative p-2 transition-transform hover:scale-110 active:scale-95"
           >
-            <ShoppingBag size={22} strokeWidth={1.2} className="group-hover:scale-110 transition-transform text-black" />
-            {mounted && totalItems > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-black text-[8px] font-bold text-white shadow-lg">
-                {totalItems}
-              </span>
-            )}
+            <ShoppingBag size={22} strokeWidth={1.2} className="text-black" />
+            <AnimatePresence>
+              {mounted && totalItems > 0 && (
+                <motion.span 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0 }}
+                  className="absolute -top-1 -right-1 bg-black text-white text-[8px] font-bold w-4 h-4 flex items-center justify-center rounded-full"
+                >
+                  {totalItems}
+                </motion.span>
+              )}
+            </AnimatePresence>
           </button>
 
-          {/* Menú Hamburguesa (Mobile) */}
           <button 
-            className="md:hidden p-2 text-black"
+            className="lg:hidden p-2 text-black"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           >
             {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -80,15 +105,21 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* MENÚ DESPLEGABLE MOBILE */}
-      {isMobileMenuOpen && (
-        <div className="absolute top-full left-0 w-full bg-white border-b border-gray-100 p-10 flex flex-col items-center gap-8 md:hidden animate-in fade-in slide-in-from-top-5 duration-300">
-          <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-black uppercase tracking-widest">Inicio</Link>
-          <Link href="/shop" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-black uppercase tracking-widest">Tienda</Link>
-          <Link href="/nosotros" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-black uppercase tracking-widest">Nosotros</Link>
-          <Link href="/admin/products" onClick={() => setIsMobileMenuOpen(false)} className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Admin</Link>
-        </div>
-      )}
-    </nav>
+      {/* MOBILE MENU */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden lg:hidden flex flex-col items-center gap-6 py-8 bg-white"
+          >
+            <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-black uppercase tracking-widest">Inicio</Link>
+            <Link href="/shop" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-black uppercase tracking-widest">Tienda</Link>
+            <Link href="/nosotros" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-black uppercase tracking-widest">Nosotros</Link>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.nav>
   );
 }

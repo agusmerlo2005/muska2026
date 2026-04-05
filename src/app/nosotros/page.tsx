@@ -36,7 +36,7 @@ export default function NosotrosPage() {
                 "Creo que los espacios que habitamos cuentan nuestra historia. Mi misión con Muska es ayudar a que esa historia sea bella, funcional y llena de detalles que inspiren."
               </p>
               <p className="mt-4 text-[10px] uppercase tracking-widest font-bold text-black">
-                — Jazmín De Grande, Fundadora
+                — Jazmín De Grande, owner de Muska
               </p>
             </div>
           </div>
@@ -94,7 +94,7 @@ export default function NosotrosPage() {
         {/* Footer de Sección */}
         <div className="mt-32 pt-12 border-t border-gray-100 flex flex-col md:flex-row justify-between items-start gap-8">
           <div>
-            <h4 className="text-[10px] uppercase tracking-[0.4em] font-black mb-4 text-black">Filosofía Muska</h4>
+            <h4 className="text-[10px] uppercase tracking-[0.4em] font-black mb-4 text-black">Objetivo de Muska</h4>
             <p className="max-w-xs text-xs text-gray-400 leading-relaxed uppercase tracking-wider">
               Objetos pensados para durar, diseñados para ser vistos y creados para ser usados.
             </p>
