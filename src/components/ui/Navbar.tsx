@@ -63,7 +63,7 @@ export default function Navbar() {
               MUSKA
             </span>
             <span className="text-[7px] tracking-[0.4em] uppercase text-gray-400 font-bold mt-1">
-              Interiorismo
+              home & deco
             </span>
           </Link>
         </div>
