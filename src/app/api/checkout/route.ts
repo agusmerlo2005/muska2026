@@ -1,80 +1,79 @@
 import { NextResponse } from 'next/server';
-import { MercadoPagoConfig, Preference } from 'mercadopago';
-
-// 1. CONFIGURACIÓN DEL CLIENTE (Asegurate de tener tu ACCESS TOKEN en el .env)
-const client = new MercadoPagoConfig({ 
-  accessToken: process.env.MP_ACCESS_TOKEN || '' 
-});
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { items, formData, total, shippingCost } = body;
+    const { items, formData, shippingCost } = body;
 
-    // 2. PREPARAR LOS ITEMS PARA MERCADO PAGO
-    // Mapeamos tu carrito al formato que pide la API de MP
+    // 1. CONFIGURACIÓN DE URLS (Producción Vercel)
+    // Usamos tu dominio real para los retornos de pago
+    const baseURL = "https://muskahome.vercel.app";
+
+    // 2. FORMATEAR ITEMS PARA MERCADO PAGO
     const itemsMP = items.map((item: any) => ({
-      id: item.id,
       title: item.name,
       unit_price: Number(item.price),
       quantity: Number(item.quantity),
       currency_id: 'ARS',
-      picture_url: item.image, // Para que vean la foto en el checkout de MP
     }));
 
-    // 3. AGREGAR EL ENVÍO COMO UN "PRODUCTO" ADICIONAL (Si existe costo)
-    if (shippingCost > 0) {
+    // Agregar el costo de envío como un item adicional
+    if (Number(shippingCost) > 0) {
       itemsMP.push({
-        id: 'shipping-cost',
-        title: `ENVÍO: ${formData.province}`,
+        title: `Envío: ${formData.province || 'Domicilio'}`,
         unit_price: Number(shippingCost),
         quantity: 1,
         currency_id: 'ARS',
       });
     }
 
-    // 4. CREAR LA PREFERENCIA DE PAGO
-    const preference = new Preference(client);
-
-    const result = await preference.create({
-      body: {
+    // 3. LLAMADA A LA API DE MERCADO PAGO
+    // Usamos el Token de producción directamente para asegurar la conexión
+    const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer APP_USR-4449479114430550-040619-eb42d08760f62bbaed63c61c3b880976-3318409513`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
         items: itemsMP,
         payer: {
           name: formData.name,
           email: formData.email,
-          phone: {
-            number: formData.phone,
-          },
+          phone: { number: formData.phone },
           address: {
             street_name: formData.address,
-            zip_code: formData.city, // Usamos ciudad/postal aquí
-          },
+            zip_code: formData.zipCode
+          }
         },
-        // CONFIGURACIÓN DE RETORNO (Lo que pediste)
         back_urls: {
-          success: `${process.env.NEXT_PUBLIC_URL}/checkout/success`,
-          failure: `${process.env.NEXT_PUBLIC_URL}/checkout/failure`,
-          pending: `${process.env.NEXT_PUBLIC_URL}/checkout/pending`,
+          success: `${baseURL}/checkout/success`,
+          failure: `${baseURL}/checkout/failure`,
+          pending: `${baseURL}/checkout/pending`
         },
-        auto_return: 'approved', // Redirige solo si el pago es exitoso
-        notification_url: `${process.env.NEXT_PUBLIC_URL}/api/webhooks/mercadopago`, // Para automatizar después
-        
-        // Evitamos que puedan elegir métodos que no querés (opcional)
-        payment_methods: {
-          installments: 12, // Permitir hasta 12 cuotas
-        },
-        statement_descriptor: "MUSKA STORE", // Cómo aparece en el resumen de la tarjeta
-      },
+        auto_return: "approved",
+        notification_url: `${baseURL}/api/webhooks/mercadopago`,
+        statement_descriptor: "MUSKA HOME",
+        external_reference: `ORDEN-${Date.now()}`, // Genera un ID único temporal
+        binary_mode: true
+      }),
     });
 
-    // 5. DEVOLVER EL LINK DE PAGO (init_point)
-    return NextResponse.json({ init_point: result.init_point });
+    const data = await mpResponse.json();
 
-  } catch (error) {
-    console.error('ERROR_MP_CHECKOUT:', error);
-    return NextResponse.json(
-      { error: 'Error al crear la preferencia de pago' }, 
-      { status: 500 }
-    );
+    if (!mpResponse.ok) {
+      console.error('ERROR_MERCADO_PAGO_PROD:', data);
+      return NextResponse.json({ 
+        error: 'Error en Mercado Pago', 
+        details: data.message || data 
+      }, { status: 400 });
+    }
+
+    // 4. RETORNAR EL LINK DE PAGO (init_point)
+    return NextResponse.json({ init_point: data.init_point });
+
+  } catch (error: any) {
+    console.error('ERROR_SISTEMA_CHECKOUT:', error);
+    return NextResponse.json({ error: 'Error interno de conexión' }, { status: 500 });
   }
 }

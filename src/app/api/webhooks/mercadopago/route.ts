@@ -1,12 +1,99 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { Resend } from 'resend';
+
+// 1. CONFIGURACIÓN DE CLIENTES
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+// Usamos la API Key que me pasaste
+const resend = new Resend('re_Av2Jh3wq_K8ujwY8KZ9nFsjt8yfLT88Ga');
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  
-  // 1. Mercado Pago nos avisa que cambió el estado de un pago
-  // 2. Verificamos si es 'approved'
-  // 3. Si es approved, disparamos el mail a Jazmín y al cliente
-  // 4. Actualizamos el estado en Supabase a 'paid'
+  try {
+    const body = await request.json();
+    const { data, type } = body;
 
-  return NextResponse.json({ received: true });
+    // Solo procesamos si la notificación es de un pago
+    if (type === 'payment') {
+      const paymentId = data.id;
+
+      // 2. CONSULTAR DETALLES A MERCADO PAGO
+      const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+        headers: {
+          'Authorization': `Bearer APP_USR-4449479114430550-040619-eb42d08760f62bbaed63c61c3b880976-3318409513`
+        }
+      });
+
+      const p = await mpResponse.json();
+
+      if (p.status === 'approved') {
+        const total = p.transaction_amount;
+        const emailCliente = p.payer.email;
+        const items = p.additional_info?.items || [];
+        const externalRef = p.external_reference;
+
+        // 3. GUARDAR EN TU BASE DE DATOS (SUPABASE)
+        const { error: dbError } = await supabase.from('orders').insert([{
+          payment_id: paymentId.toString(),
+          status: 'approved',
+          total_amount: total,
+          customer_email: emailCliente,
+          items: items,
+          external_reference: externalRef
+        }]);
+
+        if (dbError) console.error('Error Supabase:', dbError);
+
+        // 4. ARMAR EL CUERPO DEL MAIL PARA JAZMÍN
+        const listaProductos = items.length > 0 
+          ? items.map((i: any) => `<li>${i.quantity}x ${i.title} - $${i.unit_price}</li>`).join('')
+          : '<li>Ver detalle en Mercado Pago</li>';
+
+        // 5. ENVIAR EL MAIL AUTOMÁTICO
+        await resend.emails.send({
+          from: 'Muska Home <onboarding@resend.dev>',
+          to: ['muska.homeydeco@gmail.com'],
+          subject: `🔔 NUEVA VENTA CONFIRMADA - $${total.toLocaleString()}`,
+          html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #000; padding: 20px;">
+              <h1 style="text-align: center; text-transform: uppercase; font-style: italic; letter-spacing: -1px;">¡Nueva Venta!</h1>
+              <p style="text-align: center; font-size: 12px; color: #666; text-transform: uppercase;">Muska Home & Deco - Sistema Automático</p>
+              
+              <hr style="border: 1px solid #000; margin: 20px 0;" />
+              
+              <h3 style="text-transform: uppercase; font-size: 14px;">Detalle de la Orden:</h3>
+              <ul style="padding-left: 20px; line-height: 1.6;">
+                ${listaProductos}
+              </ul>
+              
+              <p style="font-size: 22px; font-weight: bold; margin-top: 20px;">
+                Total: $${total.toLocaleString()}
+              </p>
+
+              <div style="background: #f4f4f4; padding: 15px; margin-top: 20px;">
+                <h3 style="margin-top: 0; font-size: 14px; text-transform: uppercase;">Datos del Cliente:</h3>
+                <p style="margin: 5px 0;"><strong>Email:</strong> ${emailCliente}</p>
+                <p style="margin: 5px 0;"><strong>Referencia:</strong> ${externalRef || 'N/A'}</p>
+                <p style="margin: 5px 0;"><strong>ID de Pago:</strong> ${paymentId}</p>
+              </div>
+
+              <p style="font-size: 10px; color: #999; margin-top: 30px; text-align: center;">
+                Este es un aviso automático de tu tienda Muska Home.
+              </p>
+            </div>
+          `,
+        });
+
+        console.log(`✅ Pedido ${paymentId} procesado, guardado y mail enviado.`);
+      }
+    }
+
+    return NextResponse.json({ status: 'ok' }, { status: 200 });
+  } catch (error: any) {
+    console.error('Error Crítico Webhook:', error.message);
+    return NextResponse.json({ error: 'Webhook Error' }, { status: 500 });
+  }
 }
