@@ -1,154 +1,136 @@
+// src/features/admin/components/ProductForm.tsx COMPLETE
+
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
 import { useState } from 'react';
-import { UploadCloud } from 'lucide-react';
+import { Upload, X } from 'lucide-react';
 
-export default function ProductForm({ categories }: { categories: any[] }) {
+interface ProductFormProps {
+  categories: any[];
+  productToEdit?: any;
+  onSuccess?: () => void;
+}
+
+export default function ProductForm({ categories, productToEdit, onSuccess }: ProductFormProps) {
   const [loading, setLoading] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-
-  const [name, setName] = useState('');
-  const [price, setPrice] = useState('');
-  const [description, setDescription] = useState('');
-  const [categoryId, setCategoryId] = useState(categories[0]?.id || '');
-
+  const [image, setImage] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(productToEdit?.image_url || null);
   const supabase = createClient();
+
+  const [formData, setFormData] = useState({
+    name: productToEdit?.name || '',
+    price: productToEdit?.price || '',
+    category_id: productToEdit?.category_id || '',
+    description: productToEdit?.description || '',
+    stock: productToEdit?.stock || 0,
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!imageFile) {
-      alert("Seleccioná una imagen");
-      return;
-    }
-
     setLoading(true);
 
     try {
-      // 🔥 nombre único REAL (evita bugs)
-      const fileExt = imageFile.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random()}.${fileExt}`;
+      let image_url = productToEdit?.image_url;
 
-      // 🔥 subir imagen
-      const { error: uploadError } = await supabase.storage
-        .from('products')
-        .upload(fileName, imageFile, {
-          cacheControl: '3600',
-          upsert: false,
-        });
+      if (image) {
+        const fileExt = image.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from('products')
+          .upload(fileName, image);
 
-      if (uploadError) throw uploadError;
-
-      // 🔥 obtener URL pública
-      const { data } = supabase.storage
-        .from('products')
-        .getPublicUrl(fileName);
-
-      const publicUrl = data.publicUrl;
-
-      if (!publicUrl) {
-        throw new Error("No se pudo obtener la URL de la imagen");
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from('products').getPublicUrl(fileName);
+        image_url = data.publicUrl;
       }
 
-      // 🔥 guardar producto
-      const { error: insertError } = await supabase
-        .from('products')
-        .insert([{
-          name,
-          description,
-          price: parseFloat(price),
-          stock: 0,
-          category_id: categoryId,
-          image_url: publicUrl,
-          active: true,
-          slug: name.toLowerCase().replace(/\s+/g, '-')
-        }]);
+      const payload = {
+        name: formData.name.toUpperCase(),
+        price: parseFloat(formData.price.toString()),
+        category_id: formData.category_id,
+        description: formData.description,
+        stock: parseInt(formData.stock.toString()),
+        image_url,
+      };
 
-      if (insertError) throw insertError;
+      if (productToEdit) {
+        const { error } = await supabase.from('products').update(payload).eq('id', productToEdit.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('products').insert([payload]);
+        if (error) throw error;
+        setFormData({ name: '', price: '', category_id: '', description: '', stock: 0 });
+        setPreview(null);
+      }
 
-      alert("Producto creado correctamente 🚀");
-      window.location.reload();
-
+      if (onSuccess) onSuccess();
+      alert(productToEdit ? "CAMBIOS GUARDADOS" : "PRODUCTO CREADO");
     } catch (err: any) {
-      console.error(err);
       alert("Error: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
+  // Clases comunes para inputs para que sean fáciles de tocar en móvil (py-3.5 es clave)
+  const inputClasses = "w-full border-b border-gray-100 py-3.5 text-base font-medium uppercase outline-none focus:border-black bg-transparent transition-colors placeholder:text-gray-200";
+  const labelClasses = "text-[10px] font-black text-gray-400 uppercase tracking-widest block";
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 p-6 border rounded-lg bg-white text-black max-w-lg mx-auto">
-
-      <div className="border-2 border-dashed border-gray-200 p-4 text-center relative">
-
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => {
-            if (e.target.files?.[0]) {
-              const file = e.target.files[0];
-              setImageFile(file);
-              setImagePreview(URL.createObjectURL(file));
-            }
-          }}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-        />
-
-        {imagePreview ? (
-          <img src={imagePreview} className="w-full h-40 object-contain mx-auto" />
+    <form onSubmit={handleSubmit} className="space-y-10">
+      {/* IMAGEN: Proporción video para móvil (ocupa menos alto) */}
+      <div className="relative aspect-video bg-gray-50 border border-dashed border-gray-100 flex items-center justify-center overflow-hidden rounded-sm group">
+        {preview ? (
+          <>
+            <img src={preview} alt="Preview" className="w-full h-full object-cover grayscale transition-all group-hover:grayscale-0" />
+            <button type="button" onClick={() => { setImage(null); setPreview(null); }} className="absolute top-2 right-2 bg-white/90 p-2.5 rounded-full shadow-sm"><X size={16} className="text-black"/></button>
+          </>
         ) : (
-          <div className="py-10 text-gray-400">
-            <UploadCloud className="mx-auto mb-2" />
-            <p className="text-xs uppercase font-black">
-              Arrastrá o hacé click para subir
-            </p>
-          </div>
+          <label className="cursor-pointer flex flex-col items-center p-6 text-center">
+            <Upload className="text-gray-300 mb-3" size={24} />
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Seleccionar Imagen</span>
+            <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) { setImage(file); setPreview(URL.createObjectURL(file)); }
+            }} />
+          </label>
         )}
       </div>
 
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Nombre del Producto"
-        className="w-full border p-3 rounded"
-        required
-      />
+      <div className="space-y-8">
+        <div className="space-y-1">
+          <label className={labelClasses}>Nombre del Artículo</label>
+          <input className={inputClasses} placeholder="EJ: VELA VAINILLA GRAND" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+        </div>
+        
+        <div className="grid grid-cols-2 gap-8">
+          <div className="space-y-1">
+            <label className={labelClasses}>Precio ($)</label>
+            <input type="number" className={inputClasses} placeholder="EJ: 12500" required value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} />
+          </div>
+          <div className="space-y-1">
+            <label className={labelClasses}>Stock</label>
+            <input type="number" className={inputClasses} placeholder="EJ: 10" required value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} />
+          </div>
+        </div>
 
-      <input
-        value={price}
-        onChange={(e) => setPrice(e.target.value)}
-        type="number"
-        placeholder="Precio"
-        className="w-full border p-3 rounded"
-        required
-      />
+        <div className="space-y-1">
+          <label className={labelClasses}>Categoría</label>
+          <select className={`${inputClasses} appearance-none bg-white`} required value={formData.category_id} onChange={e => setFormData({...formData, category_id: e.target.value})}>
+            <option value="" disabled className="text-gray-200">SELECCIONAR...</option>
+            {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+          </select>
+        </div>
+        
+        <div className="space-y-1">
+          <label className={labelClasses}>Descripción Breve</label>
+          <textarea rows={3} className={`${inputClasses} resize-none`} placeholder="DETALLES O CARACTERÍSTICAS..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+        </div>
+      </div>
 
-      <textarea
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder="Descripción"
-        className="w-full border p-3 rounded"
-      />
-
-      <select
-        value={categoryId}
-        onChange={(e) => setCategoryId(e.target.value)}
-        className="w-full border p-3 rounded bg-white"
-      >
-        {categories.map(cat => (
-          <option key={cat.id} value={cat.id}>{cat.name}</option>
-        ))}
-      </select>
-
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full bg-black text-white p-4 uppercase font-black tracking-widest disabled:bg-gray-400"
-      >
-        {loading ? 'Guardando...' : 'Crear Producto'}
+      <button disabled={loading} className="w-full bg-black text-white py-6 text-xs font-black uppercase tracking-[0.4em] hover:bg-gray-900 transition-all disabled:bg-gray-100 disabled:text-gray-300 active:scale-[0.98]">
+        {loading ? 'PROCESANDO...' : productToEdit ? 'GUARDAR CAMBIOS' : 'CREAR PRODUCTO'}
       </button>
     </form>
   );

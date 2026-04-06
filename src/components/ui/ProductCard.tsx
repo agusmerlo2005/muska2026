@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCart } from '@/hooks/useCart';
-import { Plus } from 'lucide-react';
+// Eliminamos la importación de Plus ya que no se usa más
 
 interface ProductCardProps {
   id: string;
@@ -14,20 +14,7 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ id, name, price, category, image }: ProductCardProps) {
-  const addItem = useCart((state) => state.addItem);
-
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    addItem({
-  id,
-  name,
-  price,
-  image: image || '',
-  slug: id,
-  quantity: 1
-});
-  };
+  // Mantenemos el hook por si lo necesitas luego, pero quitamos la función handleAddToCart
 
   return (
     <div className="group flex flex-col w-full">
@@ -35,7 +22,7 @@ export default function ProductCard({ id, name, price, category, image }: Produc
         href={`/product/${id}`} 
         className="relative aspect-square w-full overflow-hidden bg-gray-50 block"
       >
-        {/* ✅ FIX REAL */}
+        {/* ✅ Mantenemos tu FIX de imagen intacto */}
         {typeof image === 'string' && image.trim() !== '' ? (
           <Image
             src={image}
@@ -50,14 +37,8 @@ export default function ProductCard({ id, name, price, category, image }: Produc
           </div>
         )}
 
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/5">
-          <button 
-            onClick={handleAddToCart}
-            className="bg-white text-black p-4 rounded-full shadow-xl translate-y-4 group-hover:translate-y-0 transition-all duration-300 hover:bg-black hover:text-white"
-          >
-            <Plus size={20} strokeWidth={2} />
-          </button>
-        </div>
+        {/* Eliminamos el div absoluto que contenía el botón del Plus */}
+        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/5" />
       </Link>
 
       <div className="mt-4 flex flex-col gap-1">

@@ -19,8 +19,8 @@ interface CartStore {
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
-  onOpen: () => void;
-  onClose: () => void;
+  openCart: () => void; // Antes era onOpen
+  closeCart: () => void; // Antes era onClose
 }
 
 export const useCart = create<CartStore>()(
@@ -29,8 +29,8 @@ export const useCart = create<CartStore>()(
       cart: [],
       isOpen: false,
       
-      onOpen: () => set({ isOpen: true }),
-      onClose: () => set({ isOpen: false }),
+      openCart: () => set({ isOpen: true }),
+      closeCart: () => set({ isOpen: false }),
 
       addItem: (item) => {
         const currentCart = get().cart;
@@ -44,7 +44,6 @@ export const useCart = create<CartStore>()(
         } else {
           set({ cart: [...currentCart, { ...item, quantity: 1 }] });
         }
-        // No abrimos el carrito automáticamente (se queda cerrado)
       },
 
       removeItem: (id) => {

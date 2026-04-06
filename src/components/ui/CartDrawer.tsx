@@ -28,6 +28,8 @@ export default function CartDrawer({
       />
 
       <div className="absolute inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+        
+        {/* Header */}
         <div className="p-6 border-b border-gray-50 flex justify-between items-center">
           <h2 className="text-[10px] uppercase font-black tracking-[0.4em] text-black">
             Carrito
@@ -41,6 +43,7 @@ export default function CartDrawer({
           </button>
         </div>
 
+        {/* Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-8">
           {cart.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center">
@@ -52,8 +55,9 @@ export default function CartDrawer({
           ) : (
             cart.map((item) => (
               <div key={item.id} className="flex gap-4">
+                
+                {/* Imagen */}
                 <div className="relative h-24 w-20 bg-gray-100 flex-shrink-0">
-                  {/* IMAGEN A COLOR REAL */}
                   <img
                     src={item.image}
                     alt={item.name}
@@ -61,7 +65,10 @@ export default function CartDrawer({
                   />
                 </div>
 
+                {/* Info */}
                 <div className="flex-1 flex flex-col justify-between py-1">
+                  
+                  {/* Nombre + precio */}
                   <div className="flex justify-between items-start">
                     <h3 className="text-[10px] uppercase font-black text-black leading-tight max-w-[150px]">
                       {item.name}
@@ -72,6 +79,7 @@ export default function CartDrawer({
                     </p>
                   </div>
 
+                  {/* Cantidad + acciones */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center border border-gray-100">
                       <button
@@ -110,6 +118,7 @@ export default function CartDrawer({
           )}
         </div>
 
+        {/* Footer */}
         {cart.length > 0 && (
           <div className="p-6 border-t border-gray-50">
             <div className="flex justify-between items-center mb-6">

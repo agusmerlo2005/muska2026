@@ -1,125 +1,111 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { ShoppingBag, Menu, X } from 'lucide-react';
-import { useCart } from '@/hooks/useCart';
-import { useEffect, useState } from 'react';
+import { ShoppingBag, Menu, X, Home } from 'lucide-react'; // Agregué Home por si querés usar ícono en mobile
 import { motion, AnimatePresence } from 'framer-motion';
+import { useCart } from '@/hooks/useCart';
+import Logo from './Logo';
 
 export default function Navbar() {
-  const pathname = usePathname();
-  const { onOpen, cart } = useCart();
-  const [mounted, setMounted] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  const openCart = useCart((state) => state.openCart);
+  const cartCount = useCart((state) => state.cart.reduce((acc, item) => acc + item.quantity, 0));
 
   useEffect(() => {
-    setMounted(true);
+    const handleScroll = () => setIsScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const totalItems = mounted ? cart.reduce((acc, item) => acc + item.quantity, 0) : 0;
-
-  const NavLink = ({ href, children }: { href: string; children: React.ReactNode }) => {
-    const isActive = pathname === href;
-    return (
-      <Link href={href} className="relative group py-2">
-        <span className={`text-[10px] uppercase tracking-[0.2em] transition-colors duration-300 ${
-          isActive ? 'text-black font-bold' : 'text-gray-400 group-hover:text-black'
-        }`}>
-          {children}
-        </span>
-        <span className={`absolute bottom-0 left-0 h-[1.5px] bg-black transition-all duration-300 ${
-          isActive ? 'w-full' : 'w-0 group-hover:w-full'
-        }`} />
-      </Link>
-    );
-  };
+  // Definimos los links incluyendo el de Inicio
+  const navLinks = [
+    { name: 'Inicio', href: '/' },
+    { name: 'Shop', href: '/shop' },
+    { name: 'Nosotros', href: '/nosotros' },
+  ];
 
   return (
-    <motion.nav 
-      initial={{ y: -20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      /* Clases de blindaje: 
-         - bg-white: 100% opaco para tapar el texto de atrás.
-         - z-[100]: Máxima prioridad de capa.
-         - border-b: Separación sutil.
-      */
-      className="fixed top-0 left-0 right-0 z-[100] w-full border-b border-gray-100 bg-white px-6 py-6"
-    >
-      <div className="mx-auto max-w-7xl flex items-center justify-between">
+    <nav className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-500 ${
+      isScrolled ? 'bg-white/80 backdrop-blur-md py-4 shadow-sm' : 'bg-transparent py-6'
+    }`}>
+      <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
         
-        {/* IZQUIERDA */}
-        <div className="hidden lg:flex items-center gap-8 flex-1">
-          <NavLink href="/">Inicio</NavLink>
-          <NavLink href="/shop">Tienda</NavLink>
-          <NavLink href="/nosotros">Nosotros</NavLink>
+        {/* BOTÓN MENÚ MOBILE */}
+        <button className="md:hidden p-2 -ml-2" onClick={() => setIsMobileMenuOpen(true)}>
+          <Menu size={20} />
+        </button>
+
+        {/* LINKS IZQUIERDA (Desktop) */}
+        <div className="hidden md:flex items-center gap-8">
+          {navLinks.map((link) => (
+            <Link 
+              key={link.href} 
+              href={link.href}
+              className="text-[10px] uppercase font-black tracking-[0.3em] hover:opacity-50 transition-opacity italic"
+            >
+              {link.name}
+            </Link>
+          ))}
         </div>
 
-        {/* CENTRO */}
-        <div className="flex-none">
-          <Link href="/" className="flex flex-col items-center group transition-transform duration-300 hover:scale-105">
-            <span className="text-2xl md:text-3xl font-black tracking-[-0.05em] text-black leading-none uppercase">
-              MUSKA
-            </span>
-            <span className="text-[7px] tracking-[0.4em] uppercase text-gray-400 font-bold mt-1">
-              home & deco
-            </span>
+        {/* LOGO CENTRAL */}
+        <div className="absolute left-1/2 -translate-x-1/2">
+          <Link href="/">
+            <Logo className="w-24 md:w-32" />
           </Link>
         </div>
 
-        {/* DERECHA */}
-        <div className="flex-1 flex items-center justify-end gap-5">
-          <Link 
-            href="/admin" 
-            className="hidden sm:block text-[9px] font-bold uppercase tracking-widest text-gray-300 hover:text-black transition-all"
-          >
-            Panel
-          </Link>
-
-          <button 
-            onClick={onOpen} 
-            className="relative p-2 transition-transform hover:scale-110 active:scale-95"
-          >
-            <ShoppingBag size={22} strokeWidth={1.2} className="text-black" />
-            <AnimatePresence>
-              {mounted && totalItems > 0 && (
-                <motion.span 
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  exit={{ scale: 0 }}
-                  className="absolute -top-1 -right-1 bg-black text-white text-[8px] font-bold w-4 h-4 flex items-center justify-center rounded-full"
-                >
-                  {totalItems}
-                </motion.span>
-              )}
-            </AnimatePresence>
-          </button>
-
-          <button 
-            className="lg:hidden p-2 text-black"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
+        {/* BOTÓN CARRITO (Derecha) */}
+        <button 
+          onClick={openCart} 
+          className="relative p-2 -mr-2 flex items-center gap-2 group"
+        >
+          <span className="hidden md:block text-[9px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity italic">
+            Carrito
+          </span>
+          <div className="relative">
+            <ShoppingBag size={20} strokeWidth={1.5} />
+            {cartCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-black text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-bold font-sans">
+                {cartCount}
+              </span>
+            )}
+          </div>
+        </button>
       </div>
 
-      {/* MOBILE MENU */}
+      {/* MENÚ DESPLEGABLE MOBILE */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div 
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden lg:hidden flex flex-col items-center gap-6 py-8 bg-white"
+            initial={{ opacity: 0, x: -100 }} 
+            animate={{ opacity: 1, x: 0 }} 
+            exit={{ opacity: 0, x: -100 }} 
+            className="fixed inset-0 bg-white z-[150] flex flex-col p-6 md:hidden"
           >
-            <Link href="/" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-black uppercase tracking-widest">Inicio</Link>
-            <Link href="/shop" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-black uppercase tracking-widest">Tienda</Link>
-            <Link href="/nosotros" onClick={() => setIsMobileMenuOpen(false)} className="text-sm font-black uppercase tracking-widest">Nosotros</Link>
+            <div className="flex justify-end">
+              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="flex-1 flex flex-col items-center justify-center gap-10">
+              {navLinks.map((link) => (
+                <Link 
+                  key={link.href} 
+                  href={link.href} 
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="text-4xl font-black uppercase italic tracking-tighter"
+                >
+                  {link.name}
+                </Link>
+              ))}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.nav>
+    </nav>
   );
 }

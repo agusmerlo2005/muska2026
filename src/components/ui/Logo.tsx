@@ -1,8 +1,14 @@
 import React from 'react';
 
-export default function Logo() {
+// Definimos que el Logo puede recibir una clase de CSS opcional
+interface LogoProps {
+  className?: string;
+}
+
+export default function Logo({ className }: LogoProps) {
   return (
-    <div className="flex flex-col items-center group transition-opacity hover:opacity-80">
+    /* Agregamos {className} al div principal para que tome el tamaño del Navbar */
+    <div className={`flex flex-col items-center group transition-opacity hover:opacity-80 ${className}`}>
       {/* Texto Principal en Gris Oscuro/Piedra */}
       <h1 className="text-2xl md:text-3xl font-black tracking-[-0.05em] text-gray-800 leading-none uppercase">
         Muska
