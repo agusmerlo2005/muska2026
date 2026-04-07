@@ -5,9 +5,8 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { items, formData, shippingCost } = body;
 
-    // 1. CONFIGURACIÓN DE URLS (Producción Vercel)
-    // Usamos tu dominio real para los retornos de pago
-    const baseURL = "https://muskahome.vercel.app";
+    // 1. URL DE TU PROYECTO REAL (Vercel)
+    const baseURL = "https://muska2026.vercel.app";
 
     // 2. FORMATEAR ITEMS PARA MERCADO PAGO
     const itemsMP = items.map((item: any) => ({
@@ -17,7 +16,7 @@ export async function POST(request: Request) {
       currency_id: 'ARS',
     }));
 
-    // Agregar el costo de envío como un item adicional
+    // Agregar el costo de envío
     if (Number(shippingCost) > 0) {
       itemsMP.push({
         title: `Envío: ${formData.province || 'Domicilio'}`,
@@ -28,7 +27,6 @@ export async function POST(request: Request) {
     }
 
     // 3. LLAMADA A LA API DE MERCADO PAGO
-    // Usamos el Token de producción directamente para asegurar la conexión
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
@@ -54,7 +52,7 @@ export async function POST(request: Request) {
         auto_return: "approved",
         notification_url: `${baseURL}/api/webhooks/mercadopago`,
         statement_descriptor: "MUSKA HOME",
-        external_reference: `ORDEN-${Date.now()}`, // Genera un ID único temporal
+        external_reference: `ORDEN-${Date.now()}`,
         binary_mode: true
       }),
     });
@@ -62,18 +60,12 @@ export async function POST(request: Request) {
     const data = await mpResponse.json();
 
     if (!mpResponse.ok) {
-      console.error('ERROR_MERCADO_PAGO_PROD:', data);
-      return NextResponse.json({ 
-        error: 'Error en Mercado Pago', 
-        details: data.message || data 
-      }, { status: 400 });
+      return NextResponse.json({ error: 'Error en MP', details: data }, { status: 400 });
     }
 
-    // 4. RETORNAR EL LINK DE PAGO (init_point)
     return NextResponse.json({ init_point: data.init_point });
 
   } catch (error: any) {
-    console.error('ERROR_SISTEMA_CHECKOUT:', error);
-    return NextResponse.json({ error: 'Error interno de conexión' }, { status: 500 });
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
   }
 }
