@@ -62,12 +62,29 @@ export default function CartDrawer() {
                         </div>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center border border-gray-100">
-                            <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="p-1 px-2"><Minus size={10} /></button>
+                            <button 
+                              onClick={() => updateQuantity(item.id, item.quantity - 1)} 
+                              className="p-1 px-2 hover:bg-gray-50 transition-colors"
+                            >
+                              <Minus size={10} />
+                            </button>
+                            
                             <span className="text-[10px] font-bold w-4 text-center">{item.quantity}</span>
-                            <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="p-1 px-2"><Plus size={10} /></button>
+                            
+                            <button 
+                              onClick={() => updateQuantity(item.id, item.quantity + 1)} 
+                              disabled={item.quantity >= item.stock} // ✅ BLOQUEO DE STOCK
+                              className="p-1 px-2 hover:bg-gray-50 transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+                            >
+                              <Plus size={10} />
+                            </button>
                           </div>
                           <button onClick={() => removeItem(item.id)} className="text-[9px] uppercase font-bold text-gray-300 hover:text-black">Quitar</button>
                         </div>
+                        {/* Aviso visual opcional si llega al tope */}
+                        {item.quantity >= item.stock && (
+                          <p className="text-[7px] uppercase font-bold text-orange-500 mt-1">Máximo disponible</p>
+                        )}
                       </div>
                     </motion.div>
                   ))}

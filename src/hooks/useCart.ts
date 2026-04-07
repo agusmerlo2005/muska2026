@@ -10,6 +10,7 @@ interface CartItem {
   image: string;
   quantity: number;
   slug: string;
+  stock: number; // ✅ Paso 1: Agregamos el stock a la interfaz
 }
 
 interface CartStore {
@@ -19,8 +20,8 @@ interface CartStore {
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
-  openCart: () => void; // Antes era onOpen
-  closeCart: () => void; // Antes era onClose
+  openCart: () => void;
+  closeCart: () => void;
 }
 
 export const useCart = create<CartStore>()(
@@ -37,12 +38,18 @@ export const useCart = create<CartStore>()(
         const existingItem = currentCart.find((i) => i.id === item.id);
 
         if (existingItem) {
-          const updatedCart = currentCart.map((i) =>
-            i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
-          );
-          set({ cart: updatedCart });
+          // ✅ Paso 2: Validar stock antes de sumar en el botón de la tienda
+          if (existingItem.quantity < existingItem.stock) {
+            const updatedCart = currentCart.map((i) =>
+              i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+            );
+            set({ cart: updatedCart });
+          }
         } else {
-          set({ cart: [...currentCart, { ...item, quantity: 1 }] });
+          // Si el producto es nuevo, solo se agrega si hay al menos 1 en stock
+          if (item.stock > 0) {
+            set({ cart: [...currentCart, { ...item, quantity: 1 }] });
+          }
         }
       },
 
@@ -52,9 +59,16 @@ export const useCart = create<CartStore>()(
 
       updateQuantity: (id, quantity) => {
         if (quantity <= 0) return;
-        set({
-          cart: get().cart.map((i) => (i.id === id ? { ...i, quantity } : i)),
-        });
+        
+        const currentCart = get().cart;
+        const item = currentCart.find((i) => i.id === id);
+
+        // ✅ Paso 3: Bloqueo total. Si la nueva cantidad supera el stock, no hace nada.
+        if (item && quantity <= item.stock) {
+          set({
+            cart: currentCart.map((i) => (i.id === id ? { ...i, quantity } : i)),
+          });
+        }
       },
 
       clearCart: () => set({ cart: [] }),

@@ -14,6 +14,7 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   
   const addItem = useCart((state) => state.addItem);
+  const openCart = useCart((state) => state.openCart); // Para abrir el carrito al agregar
   const supabase = createClient();
 
   useEffect(() => {
@@ -29,8 +30,24 @@ export default function ProductDetailPage() {
   if (loading) return <div className="h-screen flex items-center justify-center bg-white"><span className="text-[10px] uppercase font-black tracking-[0.5em] animate-pulse text-black">Muska Home...</span></div>;
   if (!product) return <div className="h-screen flex flex-col items-center justify-center gap-4 bg-white text-black"><p className="text-[10px] uppercase font-black text-gray-400">Producto no encontrado</p><Link href="/shop" className="text-[10px] uppercase font-black underline">Volver</Link></div>;
 
-  // Usamos img normal para que no falle el placeholder de Muska
   const finalImage = product.image_url || product.image || product.imagen || "https://placehold.co/800x800/f3f3f3/a3a3a3?text=Muska+Home";
+  
+  // Forzamos stock a número
+  const productStock = Number(product.stock || 0);
+
+  const handleAddToCart = () => {
+    // Agregamos el producto pasando el stock
+    addItem({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      image: finalImage,
+      slug: product.id,
+      quantity: quantity,
+      stock: productStock // ✅ CLAVE: Ahora el carrito sabe el límite
+    });
+    openCart(); // Opcional: abre el carrito para que el usuario vea el cambio
+  };
 
   return (
     <div className="min-h-screen bg-white pt-32 pb-20 px-6 text-black">
@@ -47,21 +64,36 @@ export default function ProductDetailPage() {
             <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter mb-6 leading-none">{product.name}</h1>
             <p className="text-3xl font-bold mb-10">${Number(product.price).toLocaleString()}</p>
             <p className="text-gray-500 text-sm leading-relaxed max-w-md font-light mb-12">{product.description || "Pieza exclusiva de Muska Home."}</p>
+            
             <div className="flex flex-col gap-6 max-w-sm">
-              <div className="flex items-center justify-between border border-gray-200 p-5">
-                <span className="text-[9px] uppercase font-black text-gray-400">Cantidad</span>
-                <div className="flex items-center gap-8">
-                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus size={14} /></button>
-                  <span className="text-sm font-black w-4 text-center">{quantity}</span>
-                  <button onClick={() => setQuantity(quantity + 1)}><Plus size={14} /></button>
+              {productStock > 0 ? (
+                <>
+                  <div className="flex items-center justify-between border border-gray-200 p-5">
+                    <span className="text-[9px] uppercase font-black text-gray-400">Cantidad</span>
+                    <div className="flex items-center gap-8">
+                      <button onClick={() => setQuantity(Math.max(1, quantity - 1))}><Minus size={14} /></button>
+                      <span className="text-sm font-black w-4 text-center">{quantity}</span>
+                      <button 
+                        onClick={() => setQuantity(Math.min(productStock, quantity + 1))}
+                        disabled={quantity >= productStock}
+                        className="disabled:opacity-20"
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={handleAddToCart}
+                    className="w-full bg-black text-white py-6 text-[11px] uppercase font-black tracking-[0.5em] hover:bg-zinc-900 transition-colors"
+                  >
+                    Añadir al carrito
+                  </button>
+                </>
+              ) : (
+                <div className="w-full bg-gray-100 text-gray-400 py-6 text-center text-[11px] uppercase font-black tracking-[0.5em]">
+                  Sin stock disponible
                 </div>
-              </div>
-              <button 
-                onClick={() => { for(let i = 0; i < quantity; i++) { addItem({ id: product.id, name: product.name, price: product.price, image: finalImage, slug: product.id, quantity: 1 }); } }}
-                className="w-full bg-black text-white py-6 text-[11px] uppercase font-black tracking-[0.5em]"
-              >
-                Añadir al carrito
-              </button>
+              )}
             </div>
           </div>
         </div>
