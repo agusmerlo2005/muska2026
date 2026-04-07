@@ -84,7 +84,8 @@ export default function HomePage() {
               name={p.name}
               price={p.price}
               category={p.categories?.name || 'Objeto'}
-              image={p.image_url} // 🔥 ACA ESTÁ LA CLAVE
+              image={p.image_url}
+              stock={p.stock} // ✅ AHORA SÍ: El inicio ya sabe cuánto stock hay
             />
           ))}
 
