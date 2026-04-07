@@ -82,7 +82,15 @@ function ShopContent() {
           <>
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-x-4 md:gap-x-8 gap-y-12 md:gap-y-16">
               {products.map((product) => (
-                <ProductCard key={product.id} id={product.id} name={product.name} price={product.price} category={'Objeto'} image={product.image_url} />
+                <ProductCard 
+                  key={product.id} 
+                  id={product.id} 
+                  name={product.name} 
+                  price={product.price} 
+                  category={'Objeto'} 
+                  image={product.image_url}
+                  stock={product.stock} // <-- Agregado sin romper nada
+                />
               ))}
             </div>
             {totalPages > 1 && (
@@ -121,7 +129,7 @@ function ShopContent() {
   );
 }
 
-// 2. EXPORTAMOS LA PÁGINA ENVOLVIÉNDOLA EN SUSPENSE (ESTO ARREGLA VERCEL)
+// 2. EXPORTAMOS LA PÁGINA ENVOLVIÉNDOLA EN SUSPENSE
 export default function ShopPage() {
   return (
     <Suspense fallback={<div className="h-screen flex items-center justify-center font-black uppercase text-[10px]">Cargando Tienda...</div>}>
