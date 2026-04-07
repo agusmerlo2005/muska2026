@@ -1,9 +1,7 @@
-// src/features/admin/components/ProductForm.tsx COMPLETE
-
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Agregamos useEffect para sincronizar
 import { Upload, X } from 'lucide-react';
 
 interface ProductFormProps {
@@ -23,8 +21,23 @@ export default function ProductForm({ categories, productToEdit, onSuccess }: Pr
     price: productToEdit?.price || '',
     category_id: productToEdit?.category_id || '',
     description: productToEdit?.description || '',
-    stock: productToEdit?.stock || 0,
+    stock: productToEdit?.stock ?? 0, // Usamos ?? para que si es 0 no lo tome como vacío
   });
+
+  // Este efecto asegura que si hacés clic en "Editar" en otro producto, 
+  // los datos del formulario se actualicen de verdad.
+  useEffect(() => {
+    if (productToEdit) {
+      setFormData({
+        name: productToEdit.name || '',
+        price: productToEdit.price || '',
+        category_id: productToEdit.category_id || '',
+        description: productToEdit.description || '',
+        stock: productToEdit.stock ?? 0,
+      });
+      setPreview(productToEdit.image_url || null);
+    }
+  }, [productToEdit]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +63,7 @@ export default function ProductForm({ categories, productToEdit, onSuccess }: Pr
         price: parseFloat(formData.price.toString()),
         category_id: formData.category_id,
         description: formData.description,
-        stock: parseInt(formData.stock.toString()),
+        stock: parseInt(formData.stock.toString()) || 0, // Aseguramos que sea número
         image_url,
       };
 
@@ -73,13 +86,11 @@ export default function ProductForm({ categories, productToEdit, onSuccess }: Pr
     }
   };
 
-  // Clases comunes para inputs para que sean fáciles de tocar en móvil (py-3.5 es clave)
   const inputClasses = "w-full border-b border-gray-100 py-3.5 text-base font-medium uppercase outline-none focus:border-black bg-transparent transition-colors placeholder:text-gray-200";
   const labelClasses = "text-[10px] font-black text-gray-400 uppercase tracking-widest block";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-10">
-      {/* IMAGEN: Proporción video para móvil (ocupa menos alto) */}
       <div className="relative aspect-video bg-gray-50 border border-dashed border-gray-100 flex items-center justify-center overflow-hidden rounded-sm group">
         {preview ? (
           <>
@@ -111,7 +122,14 @@ export default function ProductForm({ categories, productToEdit, onSuccess }: Pr
           </div>
           <div className="space-y-1">
             <label className={labelClasses}>Stock</label>
-            <input type="number" className={inputClasses} placeholder="EJ: 10" required value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} />
+            <input 
+              type="number" 
+              className={inputClasses} 
+              placeholder="EJ: 10" 
+              required 
+              value={formData.stock} 
+              onChange={e => setFormData({...formData, stock: e.target.value})} 
+            />
           </div>
         </div>
 
