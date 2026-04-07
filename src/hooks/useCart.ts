@@ -10,7 +10,7 @@ interface CartItem {
   image: string;
   quantity: number;
   slug: string;
-  stock: number; // ✅ Paso 1: Agregamos el stock a la interfaz
+  stock: number;
 }
 
 interface CartStore {
@@ -38,17 +38,29 @@ export const useCart = create<CartStore>()(
         const existingItem = currentCart.find((i) => i.id === item.id);
 
         if (existingItem) {
-          // ✅ Paso 2: Validar stock antes de sumar en el botón de la tienda
-          if (existingItem.quantity < existingItem.stock) {
-            const updatedCart = currentCart.map((i) =>
-              i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
-            );
-            set({ cart: updatedCart });
+          // Calculamos la nueva cantidad sumando la que ya había + la nueva
+          const totalRequested = existingItem.quantity + item.quantity;
+          
+          if (totalRequested <= existingItem.stock) {
+            set({
+              cart: currentCart.map((i) =>
+                i.id === item.id ? { ...i, quantity: totalRequested } : i
+              ),
+            });
+          } else {
+            // Si se pasa, lo dejamos en el máximo
+            set({
+              cart: currentCart.map((i) =>
+                i.id === item.id ? { ...i, quantity: i.stock } : i
+              ),
+            });
           }
         } else {
-          // Si el producto es nuevo, solo se agrega si hay al menos 1 en stock
+          // Si es nuevo, respetamos la cantidad que viene (item.quantity)
+          // pero siempre chequeando que no supere el stock
+          const initialQuantity = Math.min(item.quantity, item.stock);
           if (item.stock > 0) {
-            set({ cart: [...currentCart, { ...item, quantity: 1 }] });
+            set({ cart: [...currentCart, { ...item, quantity: initialQuantity }] });
           }
         }
       },
@@ -59,11 +71,9 @@ export const useCart = create<CartStore>()(
 
       updateQuantity: (id, quantity) => {
         if (quantity <= 0) return;
-        
         const currentCart = get().cart;
         const item = currentCart.find((i) => i.id === id);
 
-        // ✅ Paso 3: Bloqueo total. Si la nueva cantidad supera el stock, no hace nada.
         if (item && quantity <= item.stock) {
           set({
             cart: currentCart.map((i) => (i.id === id ? { ...i, quantity } : i)),
