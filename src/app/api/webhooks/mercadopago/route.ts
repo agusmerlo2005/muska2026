@@ -27,18 +27,31 @@ export async function POST(request: Request) {
       console.log('📋 ESTADO DEL PAGO EN MP:', p.status);
 
       if (p.status === 'approved') {
-        // Extraemos la info que el usuario cargó en el checkout
-        const firstName = p.payer?.first_name || '';
-        const lastName = p.payer?.last_name || '';
-        const fullName = `${firstName} ${lastName}`.trim();
-        const phone = p.payer?.phone?.number || p.additional_info?.payer?.phone?.number || 'Sin teléfono';
+        // 1. Intentamos sacar el nombre de METADATA (lo que enviamos nosotros en el checkout)
+        // 2. Si no, de additional_info
+        // 3. Si no, del payer directo
+        const metadataName = p.metadata?.client_name;
+        const infoName = p.additional_info?.payer?.first_name 
+          ? `${p.additional_info.payer.first_name} ${p.additional_info.payer.last_name || ''}` 
+          : null;
+        const payerName = p.payer?.first_name 
+          ? `${p.payer.first_name} ${p.payer.last_name || ''}` 
+          : null;
+
+        const fullName = (metadataName || infoName || payerName || 'Cliente Muska').trim();
+        
+        // Lo mismo para el teléfono
+        const phone = p.metadata?.client_phone || 
+                      p.payer?.phone?.number || 
+                      p.additional_info?.payer?.phone?.number || 
+                      'Sin teléfono';
 
         const { error: dbError } = await supabase.from('orders').insert([{
           payment_id: paymentId.toString(),
           status: 'approved',
           total_amount: p.transaction_amount,
-          customer_email: p.payer?.email || 'sin-email@test.com',
-          customer_name: fullName || 'Cliente Muska',
+          customer_email: p.metadata?.client_email || p.payer?.email || 'sin-email@test.com',
+          customer_name: fullName,
           customer_phone: phone,
           items: p.additional_info?.items || [],
           created_at: new Date().toISOString()
@@ -49,7 +62,7 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: dbError.message }, { status: 200 });
         } 
         
-        console.log('✅ VENTA REGISTRADA CON ÉXITO');
+        console.log('✅ VENTA REGISTRADA CON ÉXITO:', fullName);
       }
     }
 

@@ -5,7 +5,6 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { items, formData, shippingCost } = body;
 
-    // Usamos variables de entorno para mayor seguridad en Vercel
     const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
     const baseURL = "https://muska2026.vercel.app";
 
@@ -28,14 +27,14 @@ export async function POST(request: Request) {
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`, // ✅ Ahora es dinámico
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         items: itemsMP,
         payer: {
           name: formData?.name || 'Cliente',
-          surname: formData?.lastName || '', // Agregamos apellido si tenés el dato
+          surname: formData?.lastName || '', 
           email: formData?.email || '',
           phone: {
             area_code: "",
@@ -52,14 +51,15 @@ export async function POST(request: Request) {
           pending: `${baseURL}/checkout/pending`
         },
         auto_return: "approved",
-        // ✅ Metadata es clave para vincular el pago con tu lógica interna
+        // ✅ CAMBIO CLAVE: Reforzamos metadata con nombre y teléfono exactos
         metadata: {
-          client_name: formData?.name,
+          client_name: formData?.name, // El nombre completo que Jazmín necesita ver
           client_email: formData?.email,
+          client_phone: formData?.phone, // Guardamos el teléfono aquí también por seguridad
           shipping_type: formData?.shippingType
         },
-        notification_url: `${baseURL}/api/webhooks/mercadopago`, // Donde MP avisará del pago
-        statement_descriptor: "MUSKA HOME", // Cómo aparecerá en el resumen de la tarjeta
+        notification_url: `${baseURL}/api/webhooks/mercadopago`,
+        statement_descriptor: "MUSKA HOME",
       }),
     });
 
