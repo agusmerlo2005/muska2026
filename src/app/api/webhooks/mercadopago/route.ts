@@ -3,7 +3,6 @@ import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
-// Usamos la Service Role Key para saltarnos cualquier restricción de RLS
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -12,7 +11,6 @@ const supabase = createClient(
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    // Este log es clave para ver en Vercel qué está mandando MP exactamente
     console.log('🔍 DATOS RECIBIDOS DE MP:', JSON.stringify(body));
 
     const paymentId = body.data?.id || body.resource?.split('/').pop();
@@ -29,12 +27,19 @@ export async function POST(request: Request) {
       console.log('📋 ESTADO DEL PAGO EN MP:', p.status);
 
       if (p.status === 'approved') {
-        // Intentamos insertar solo los campos esenciales primero
+        // Extraemos la info que el usuario cargó en el checkout
+        const firstName = p.payer?.first_name || '';
+        const lastName = p.payer?.last_name || '';
+        const fullName = `${firstName} ${lastName}`.trim();
+        const phone = p.payer?.phone?.number || p.additional_info?.payer?.phone?.number || 'Sin teléfono';
+
         const { error: dbError } = await supabase.from('orders').insert([{
           payment_id: paymentId.toString(),
           status: 'approved',
           total_amount: p.transaction_amount,
           customer_email: p.payer?.email || 'sin-email@test.com',
+          customer_name: fullName || 'Cliente Muska',
+          customer_phone: phone,
           items: p.additional_info?.items || [],
           created_at: new Date().toISOString()
         }]);
