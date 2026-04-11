@@ -16,19 +16,18 @@ export async function POST(request: Request) {
     const body = await request.json();
     console.log('🔔 WEBHOOK RECIBIDO:', JSON.stringify(body));
 
-    // Capturamos el ID del pago sea cual sea el formato que mande MP
+    // Capturamos el ID del pago
     const paymentId = body.data?.id || body.resource?.split('/').pop();
     
-    // Si no hay ID, no podemos hacer nada
     if (!paymentId) {
-      return NextResponse.json({ received: true, message: 'No payment ID' }, { status: 200 });
+      return NextResponse.json({ received: true }, { status: 200 });
     }
 
-    // Consultamos a Mercado Pago para confirmar los datos reales del pago
+    // 1. Consultamos a MP
     const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
       headers: { 
         'Authorization': `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
-        'User-Agent': 'MuskaHome-App'
+        'User-Agent': 'MuskaHome'
       }
     });
 
@@ -39,13 +38,12 @@ export async function POST(request: Request) {
 
     const p = await mpResponse.json();
 
-    // SOLO guardamos si el pago está aprobado
     if (p.status === 'approved') {
       const total = p.transaction_amount;
       const emailCliente = p.payer.email;
       const items = p.additional_info?.items || [];
 
-      // Insertamos en Supabase con los nombres exactos de tus columnas
+      // 2. GUARDAR EN SUPABASE (Prioridad #1)
       const { error: dbError } = await supabase.from('orders').insert([{
         payment_id: paymentId.toString(),
         status: 'approved',
@@ -57,24 +55,33 @@ export async function POST(request: Request) {
       }]);
 
       if (dbError) {
-        console.error('❌ Error Supabase al insertar:', dbError.message);
-      } else {
-        console.log('✅ VENTA GUARDADA EXITOSAMENTE');
-        
-        // Enviamos el mail a Jazmín (opcional)
-        try {
-          await resend.emails.send({
-            from: 'Muska Home <onboarding@resend.dev>',
-            to: ['muska.homeydeco@gmail.com'], 
-            subject: `🔔 VENTA CONFIRMADA - $${total.toLocaleString()}`,
-            html: `<p>Nueva venta de <b>${emailCliente}</b> por $${total}</p>`
-          });
-        } catch (mailErr) {
-          console.error('📧 Error mail:', mailErr);
-        }
+        console.error('❌ ERROR SUPABASE:', dbError.message);
+        // Si falla la base, tiramos error para que MP reintente
+        return NextResponse.json({ error: 'DB Error' }, { status: 500 });
       }
-    } else {
-      console.log(`ℹ️ Pago recibido pero estado es: ${p.status}`);
+
+      console.log('✅ VENTA GUARDADA EN TABLA ORDERS');
+
+      // 3. ENVIAR MAIL (Prioridad #2 - En un bloque separado para que no rompa lo anterior)
+      try {
+        await resend.emails.send({
+          from: 'Muska Home <onboarding@resend.dev>',
+          to: ['muska.homeydeco@gmail.com'], // Asegurate que este mail esté verificado en Resend
+          subject: `🔔 NUEVA VENTA - $${total}`,
+          html: `
+            <div style="font-family:sans-serif; border:1px solid #000; padding:20px;">
+              <h1>¡Nueva venta confirmada!</h1>
+              <p><b>Cliente:</b> ${emailCliente}</p>
+              <p><b>Monto:</b> $${total}</p>
+              <p>Revisá el panel de administración para ver los detalles.</p>
+            </div>
+          `
+        });
+        console.log('📧 Mail enviado con éxito');
+      } catch (mailErr) {
+        // Si el mail falla, NO importa, porque la venta ya se guardó en el paso 2
+        console.error('⚠️ Error al enviar mail (pero la venta se guardó):', mailErr);
+      }
     }
 
     return NextResponse.json({ received: true }, { status: 200 });
