@@ -13,18 +13,17 @@ export default function AdminOrdersPage() {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      // Traemos todos los campos, incluyendo customer_name y customer_phone
       let query = supabase
         .from('orders')
         .select('*')
         .order('created_at', { ascending: false });
       
       if (filter !== 'TODOS') {
-        // Si el filtro es 'PENDIENTE', MP lo manda como 'pending'
+        // Mapeo exacto para la base de datos
         const statusMap: { [key: string]: string } = {
           'PENDIENTE': 'pending',
-          'ENVIADO': 'approved', // En tu lógica, approved ya cuenta como para enviar
-          'ENTREGADO': 'delivered'
+          'ENVIADO': 'ENVIADO',
+          'ENTREGADO': 'ENTREGADO'
         };
         query = query.eq('status', statusMap[filter] || filter);
       }
