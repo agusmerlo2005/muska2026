@@ -1,4 +1,4 @@
-// 1. Importamos tu propio creador de cliente (el que usa @supabase/ssr)
+// 1. Importamos tu propio creador de cliente
 import { createClient } from '@/lib/supabase/server'; 
 import Link from 'next/link';
 import { 
@@ -11,16 +11,20 @@ import {
 } from 'lucide-react';
 
 export default async function AdminDashboardPage() {
-  // 2. Usamos tu función configurada
   const supabase = await createClient();
 
-  // Traemos datos rápidos para las estadísticas
+  // Traemos los conteos reales de la base de datos
   const { count: productsCount } = await supabase
     .from('products')
     .select('*', { count: 'exact', head: true });
 
   const { count: categoriesCount } = await supabase
     .from('categories')
+    .select('*', { count: 'exact', head: true });
+
+  // ✅ Nueva consulta para las ventas reales
+  const { count: ordersCount } = await supabase
+    .from('orders')
     .select('*', { count: 'exact', head: true });
 
   const stats = [
@@ -39,17 +43,17 @@ export default async function AdminDashboardPage() {
       color: 'bg-gray-100 text-black' 
     },
     { 
-      label: 'Ventas (Demo)', 
-      value: '0', 
+      // ✅ Ahora apunta a tus ventas reales
+      label: 'Ventas Realizadas', 
+      value: ordersCount || 0, 
       icon: ShoppingBag, 
-      href: '#', 
+      href: '/admin/orders', 
       color: 'bg-gray-100 text-black' 
     },
   ];
 
   return (
     <div className="p-6 md:p-10 max-w-7xl mx-auto min-h-screen bg-white text-black">
-      {/* HEADER */}
       <header className="mb-12">
         <h1 className="text-5xl font-black uppercase tracking-tighter italic">
           PANEL DE CONTROL.
@@ -59,7 +63,6 @@ export default async function AdminDashboardPage() {
         </p>
       </header>
 
-      {/* STATS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         {stats.map((stat) => (
           <Link 
@@ -85,7 +88,6 @@ export default async function AdminDashboardPage() {
         ))}
       </div>
 
-      {/* ACCESOS RÁPIDOS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         <section className="border border-gray-100 p-8">
           <h2 className="text-[11px] font-black uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
@@ -98,11 +100,12 @@ export default async function AdminDashboardPage() {
             >
               Cargar Nuevo Producto
             </Link>
+            {/* ✅ Agregamos un botón directo para Ventas aquí también */}
             <Link 
-              href="/admin/categories" 
+              href="/admin/orders" 
               className="block w-full text-center border border-gray-200 py-4 text-[10px] font-black uppercase tracking-[0.2em] hover:border-black transition-all text-gray-400 hover:text-black"
             >
-              Administrar Categorías
+              Ver Historial de Ventas
             </Link>
           </div>
         </section>

@@ -32,6 +32,13 @@ export default function AdminLayout({
               >
                 Categorías
               </Link>
+              {/* MODIFICACIÓN: Link de Ventas agregado */}
+              <Link 
+                href="/admin/orders" 
+                className="text-[9px] font-black uppercase tracking-[0.15em] text-gray-400 hover:text-black transition-colors"
+              >
+                Ventas
+              </Link>
             </div>
           </div>
 
