@@ -10,6 +10,9 @@ import {
   Users 
 } from 'lucide-react';
 
+// ÚNICO CAMBIO: Forzar a que los números siempre sean los más nuevos al recargar
+export const revalidate = 0;
+
 export default async function AdminDashboardPage() {
   const supabase = await createClient();
 
