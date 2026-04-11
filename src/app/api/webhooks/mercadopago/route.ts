@@ -3,12 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 
 // 1. CONFIGURACIÓN DE CLIENTES
+// Usamos Service Role Key para tener permisos de escritura en la DB
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Usamos la API Key que me pasaste
 const resend = new Resend('re_Av2Jh3wq_K8ujwY8KZ9nFsjt8yfLT88Ga');
 
 export async function POST(request: Request) {
@@ -19,16 +19,22 @@ export async function POST(request: Request) {
     // Solo procesamos si la notificación es de un pago
     if (type === 'payment') {
       const paymentId = data.id;
+      const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN; // ✅ Token real desde Vercel
 
       // 2. CONSULTAR DETALLES A MERCADO PAGO
       const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
         headers: {
-          'Authorization': `Bearer APP_USR-4449479114430550-040619-eb42d08760f62bbaed63c61c3b880976-3318409513`
+          'Authorization': `Bearer ${accessToken}`
         }
       });
 
+      if (!mpResponse.ok) {
+        throw new Error('No se pudo obtener el detalle del pago de Mercado Pago');
+      }
+
       const p = await mpResponse.json();
 
+      // Solo actuamos si el pago está aprobado
       if (p.status === 'approved') {
         const total = p.transaction_amount;
         const emailCliente = p.payer.email;
@@ -36,23 +42,27 @@ export async function POST(request: Request) {
         const externalRef = p.external_reference;
 
         // 3. GUARDAR EN TU BASE DE DATOS (SUPABASE)
+        // Nota: Asegurate que tu tabla 'orders' tenga estas columnas exactas
         const { error: dbError } = await supabase.from('orders').insert([{
           payment_id: paymentId.toString(),
           status: 'approved',
           total_amount: total,
           customer_email: emailCliente,
           items: items,
-          external_reference: externalRef
+          external_reference: externalRef,
+          created_at: new Date().toISOString()
         }]);
 
-        if (dbError) console.error('Error Supabase:', dbError);
+        if (dbError) {
+          console.error('Error Supabase al insertar orden:', dbError);
+        }
 
         // 4. ARMAR EL CUERPO DEL MAIL PARA JAZMÍN
         const listaProductos = items.length > 0 
           ? items.map((i: any) => `<li>${i.quantity}x ${i.title} - $${i.unit_price}</li>`).join('')
           : '<li>Ver detalle en Mercado Pago</li>';
 
-        // 5. ENVIAR EL MAIL AUTOMÁTICO
+        // 5. ENVIAR EL MAIL AUTOMÁTICO A JAZMÍN
         await resend.emails.send({
           from: 'Muska Home <onboarding@resend.dev>',
           to: ['muska.homeydeco@gmail.com'],
@@ -70,13 +80,13 @@ export async function POST(request: Request) {
               </ul>
               
               <p style="font-size: 22px; font-weight: bold; margin-top: 20px;">
-                Total: $${total.toLocaleString()}
+                Total Pagado: $${total.toLocaleString()}
               </p>
 
               <div style="background: #f4f4f4; padding: 15px; margin-top: 20px;">
                 <h3 style="margin-top: 0; font-size: 14px; text-transform: uppercase;">Datos del Cliente:</h3>
                 <p style="margin: 5px 0;"><strong>Email:</strong> ${emailCliente}</p>
-                <p style="margin: 5px 0;"><strong>Referencia:</strong> ${externalRef || 'N/A'}</p>
+                <p style="margin: 5px 0;"><strong>Referencia:</strong> ${externalRef || 'Sin referencia'}</p>
                 <p style="margin: 5px 0;"><strong>ID de Pago:</strong> ${paymentId}</p>
               </div>
 
@@ -87,13 +97,14 @@ export async function POST(request: Request) {
           `,
         });
 
-        console.log(`✅ Pedido ${paymentId} procesado, guardado y mail enviado.`);
+        console.log(`✅ Pedido ${paymentId} procesado con éxito.`);
       }
     }
 
     return NextResponse.json({ status: 'ok' }, { status: 200 });
   } catch (error: any) {
     console.error('Error Crítico Webhook:', error.message);
-    return NextResponse.json({ error: 'Webhook Error' }, { status: 500 });
+    // Respondemos 200 de todos modos para que MP no siga reintentando si el error es de lógica
+    return NextResponse.json({ status: 'error_logged' }, { status: 200 });
   }
 }
