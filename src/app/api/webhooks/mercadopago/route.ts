@@ -26,10 +26,10 @@ export async function POST(request: Request) {
       const p = await mpResponse.json();
       console.log('📋 ESTADO DEL PAGO EN MP:', p.status);
 
-      if (p.status === 'approved') {
-        // 1. Intentamos sacar el nombre de METADATA (lo que enviamos nosotros en el checkout)
-        // 2. Si no, de additional_info
-        // 3. Si no, del payer directo
+      // ✅ Usamos el external_reference para encontrar el pedido que ya creaste en el checkout
+      const orderId = p.external_reference;
+
+      if (p.status === 'approved' && orderId) {
         const metadataName = p.metadata?.client_name;
         const infoName = p.additional_info?.payer?.first_name 
           ? `${p.additional_info.payer.first_name} ${p.additional_info.payer.last_name || ''}` 
@@ -40,29 +40,32 @@ export async function POST(request: Request) {
 
         const fullName = (metadataName || infoName || payerName || 'Cliente Muska').trim();
         
-        // Lo mismo para el teléfono
         const phone = p.metadata?.client_phone || 
                       p.payer?.phone?.number || 
                       p.additional_info?.payer?.phone?.number || 
                       'Sin teléfono';
 
-        const { error: dbError } = await supabase.from('orders').insert([{
-          payment_id: paymentId.toString(),
-          status: 'approved',
-          total_amount: p.transaction_amount,
-          customer_email: p.metadata?.client_email || p.payer?.email || 'sin-email@test.com',
-          customer_name: fullName,
-          customer_phone: phone,
-          items: p.additional_info?.items || [],
-          created_at: new Date().toISOString()
-        }]);
+        // ✅ CAMBIO: De .insert() a .update() usando el ID de la orden
+        const { error: dbError } = await supabase
+          .from('orders')
+          .update({
+            payment_id: paymentId.toString(),
+            status: 'approved',
+            total_amount: p.transaction_amount,
+            customer_email: p.metadata?.client_email || p.payer?.email || 'sin-email@test.com',
+            customer_name: fullName,
+            customer_phone: phone,
+            items: p.additional_info?.items || [],
+            // No reseteamos el created_at para mantener la fecha original del pedido
+          })
+          .eq('id', orderId); // Buscamos la fila que ya existe
 
         if (dbError) {
           console.error('❌ ERROR ESPECÍFICO DE SUPABASE:', dbError.message);
           return NextResponse.json({ error: dbError.message }, { status: 200 });
         } 
         
-        console.log('✅ VENTA REGISTRADA CON ÉXITO:', fullName);
+        console.log('✅ PEDIDO ACTUALIZADO CON ÉXITO:', fullName);
       }
     }
 

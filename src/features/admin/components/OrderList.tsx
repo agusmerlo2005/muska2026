@@ -86,6 +86,17 @@ export default function OrderList({ orders, onRefresh }: OrderListProps) {
             </div>
             
             {/* Lógica de Botones de Acción */}
+            
+            {/* ✅ AGREGADO: Botón para casos pendientes */}
+            {order.status === 'pending' && (
+              <button 
+                onClick={() => updateStatus(order.id, 'approved')}
+                className="bg-orange-500 text-white px-6 py-3 text-[9px] font-black uppercase tracking-widest hover:bg-orange-600 transition-all"
+              >
+                Aprobar Pago Manual
+              </button>
+            )}
+
             {order.status === 'approved' && (
               <button 
                 onClick={() => updateStatus(order.id, 'ENVIADO')}
