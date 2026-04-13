@@ -15,14 +15,24 @@ export default function HomePage() {
     setAnimate(true);
 
     async function getProducts() {
-      // ✅ FILTRO POR DESTACADOS
-      const { data } = await supabase
+      // Intentamos una consulta más robusta
+      const { data, error } = await supabase
         .from('products')
-        .select('*, categories(name)')
-        .eq('is_featured', true) // Solo los que Jazmín marcó
+        .select(`
+          *,
+          categories:category_id (
+            name
+          )
+        `)
+        .eq('is_featured', true)
         .limit(4);
 
-      setProducts(data || []);
+      if (error) {
+        console.error('Error cargando destacados:', error.message);
+      } else {
+        console.log('Productos destacados encontrados:', data);
+        setProducts(data || []);
+      }
     }
 
     getProducts();
@@ -79,17 +89,23 @@ export default function HomePage() {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           
-          {products.map((p) => (
-            <ProductCard
-              key={p.id}
-              id={p.id}
-              name={p.name}
-              price={p.price}
-              category={p.categories?.name || 'Objeto'}
-              image={p.image_url}
-              stock={p.stock}
-            />
-          ))}
+          {products.length > 0 ? (
+            products.map((p) => (
+              <ProductCard
+                key={p.id}
+                id={p.id}
+                name={p.name}
+                price={p.price}
+                category={p.categories?.name || 'Objeto'}
+                image={p.image_url}
+                stock={p.stock}
+              />
+            ))
+          ) : (
+            <div className="col-span-full py-10 text-center text-[10px] uppercase tracking-[0.2em] text-gray-300 font-bold">
+              No hay productos destacados seleccionados
+            </div>
+          )}
 
         </div>
       </section>
