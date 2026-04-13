@@ -14,11 +14,23 @@ export default function Navbar() {
   const openCart = useCart((state) => state.openCart);
   const cartCount = useCart((state) => state.cart.reduce((acc, item) => acc + item.quantity, 0));
 
+  // 1. Manejo del scroll de la página (para el estilo de la Navbar)
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // 2. BLOQUEO DE SCROLL EN MÓVIL (Para evitar que se superponga el contenido al mover el dedo)
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    // Limpieza por si el componente se desmonta
+    return () => { document.body.style.overflow = 'unset'; };
+  }, [isMobileMenuOpen]);
 
   const navLinks = [
     { name: 'Inicio', href: '/' },
@@ -30,7 +42,6 @@ export default function Navbar() {
     <nav className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-500 ${
       isScrolled ? 'bg-white/80 backdrop-blur-md py-4 shadow-sm' : 'bg-transparent py-6'
     }`}>
-      {/* Agregamos 'relative' para que el logo posicionado con 'absolute' se centre respecto a este div */}
       <div className="max-w-7xl mx-auto px-6 flex justify-between items-center relative h-full">
         
         {/* BOTÓN MENÚ MOBILE */}
@@ -51,7 +62,7 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* LOGO CENTRAL: Posicionado absolutamente para centro perfecto */}
+        {/* LOGO CENTRAL */}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
           <Link href="/">
             <Logo className="w-24 md:w-32" />
@@ -81,27 +92,43 @@ export default function Navbar() {
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div 
-            initial={{ opacity: 0, x: -100 }} 
+            initial={{ opacity: 0, x: '-100%' }} // Cambiado a -100% para asegurar salida total
             animate={{ opacity: 1, x: 0 }} 
-            exit={{ opacity: 0, x: -100 }} 
-            className="fixed inset-0 bg-white z-[150] flex flex-col p-6 md:hidden"
+            exit={{ opacity: 0, x: '-100%' }} 
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed inset-0 bg-white z-[200] flex flex-col p-6 md:hidden overflow-hidden"
           >
-            <div className="flex justify-end">
+            <div className="flex justify-between items-center">
+              {/* Logo también en el menú para mantener identidad */}
+              <Logo className="w-20" />
               <button onClick={() => setIsMobileMenuOpen(false)} className="p-2">
                 <X size={24} />
               </button>
             </div>
+
             <div className="flex-1 flex flex-col items-center justify-center gap-10">
               {navLinks.map((link) => (
-                <Link 
-                  key={link.href} 
-                  href={link.href} 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-4xl font-black uppercase italic tracking-tighter"
+                <motion.div
+                  key={link.href}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
                 >
-                  {link.name}
-                </Link>
+                  <Link 
+                    href={link.href} 
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="text-4xl font-black uppercase italic tracking-tighter text-black"
+                  >
+                    {link.name}
+                  </Link>
+                </motion.div>
               ))}
+            </div>
+            
+            <div className="pb-10 text-center">
+               <p className="text-[8px] uppercase tracking-[0.4em] font-bold text-gray-300">
+                Muska home & deco — 2026
+              </p>
             </div>
           </motion.div>
         )}
