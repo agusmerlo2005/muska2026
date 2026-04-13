@@ -15,7 +15,13 @@ export default function AdminProductsPage() {
 
   const fetchData = async () => {
     const { data: cats } = await supabase.from('categories').select('*').order('name');
-    const { data: prods } = await supabase.from('products').select('*, categories(name)').order('created_at', { ascending: false });
+    
+    // CORRECCIÓN: Especificamos 'categories:category_id' para evitar la ambigüedad por la subcategoría
+    const { data: prods } = await supabase
+      .from('products')
+      .select('*, categories:category_id(name)')
+      .order('created_at', { ascending: false });
+      
     setCategories(cats || []);
     setProducts(prods || []);
   };
@@ -39,7 +45,6 @@ export default function AdminProductsPage() {
              )}
            </div>
 
-           {/* Buscador: En móvil ocupa todo el ancho abajo del título */}
            <div className="relative w-full">
              <Search className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-300" size={14} />
              <input type="text" placeholder="BUSCAR POR NOMBRE..." className="w-full bg-transparent pl-6 py-2 text-[10px] font-bold uppercase outline-none border-b border-gray-100 focus:border-black" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />

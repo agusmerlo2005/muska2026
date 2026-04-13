@@ -2,15 +2,16 @@ import { createClient } from '@/lib/supabase/server';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import AddToCartButton from '../../../../components/ui/AddToCartButton';
+
 export default async function ProductDetailPage({ params }: { params: { slug: string } }) {
   const supabase = await createClient();
 
-  // Traemos el producto por su slug
+  // CORRECCIÓN: Especificamos 'categories:category_id' aquí también
   const { data: product } = await supabase
     .from('products')
     .select(`
       *,
-      categories (name),
+      categories:category_id (name),
       product_images (url)
     `)
     .eq('slug', params.slug)
