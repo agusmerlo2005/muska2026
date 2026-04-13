@@ -16,19 +16,18 @@ export default function ProductForm({ categories, productToEdit, onSuccess }: Pr
   const [preview, setPreview] = useState<string | null>(productToEdit?.image_url || null);
   const supabase = createClient();
 
-  // Estados para manejar el filtrado de subcategorías
   const [filteredSubcategories, setFilteredSubcategories] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     name: productToEdit?.name || '',
     price: productToEdit?.price || '',
     category_id: productToEdit?.category_id || '',
-    subcategory_id: productToEdit?.subcategory_id || '', // Nuevo campo
+    subcategory_id: productToEdit?.subcategory_id || '',
     description: productToEdit?.description || '',
     stock: productToEdit?.stock ?? 0,
+    is_featured: productToEdit?.is_featured ?? false, // ✅ NUEVO
   });
 
-  // Sincronización al editar
   useEffect(() => {
     if (productToEdit) {
       setFormData({
@@ -38,16 +37,15 @@ export default function ProductForm({ categories, productToEdit, onSuccess }: Pr
         subcategory_id: productToEdit.subcategory_id || '',
         description: productToEdit.description || '',
         stock: productToEdit.stock ?? 0,
+        is_featured: productToEdit.is_featured ?? false, // ✅ NUEVO
       });
       setPreview(productToEdit.image_url || null);
       
-      // Si estamos editando, filtramos las subcategorías iniciales
       const subs = categories.filter(c => c.parent_id === productToEdit.category_id);
       setFilteredSubcategories(subs);
     }
   }, [productToEdit, categories]);
 
-  // Manejador de cambio de categoría principal
   const handleCategoryChange = (catId: string) => {
     setFormData({ ...formData, category_id: catId, subcategory_id: '' });
     const subs = categories.filter(c => c.parent_id === catId);
@@ -77,9 +75,10 @@ export default function ProductForm({ categories, productToEdit, onSuccess }: Pr
         name: formData.name.toUpperCase(),
         price: parseFloat(formData.price.toString()),
         category_id: formData.category_id,
-        subcategory_id: formData.subcategory_id || null, // Enviamos null si no hay subcategoría
+        subcategory_id: formData.subcategory_id || null,
         description: formData.description,
         stock: parseInt(formData.stock.toString()) || 0,
+        is_featured: formData.is_featured, // ✅ NUEVO
         image_url,
       };
 
@@ -89,7 +88,7 @@ export default function ProductForm({ categories, productToEdit, onSuccess }: Pr
       } else {
         const { error } = await supabase.from('products').insert([payload]);
         if (error) throw error;
-        setFormData({ name: '', price: '', category_id: '', subcategory_id: '', description: '', stock: 0 });
+        setFormData({ name: '', price: '', category_id: '', subcategory_id: '', description: '', stock: 0, is_featured: false });
         setPreview(null);
       }
 
@@ -149,7 +148,6 @@ export default function ProductForm({ categories, productToEdit, onSuccess }: Pr
           </div>
         </div>
 
-        {/* SELECTS DE CATEGORÍAS */}
         <div className="grid grid-cols-2 gap-8">
           <div className="space-y-1">
             <label className={labelClasses}>Categoría Principal</label>
@@ -185,6 +183,20 @@ export default function ProductForm({ categories, productToEdit, onSuccess }: Pr
         <div className="space-y-1">
           <label className={labelClasses}>Descripción Breve</label>
           <textarea rows={3} className={`${inputClasses} resize-none`} placeholder="DETALLES O CARACTERÍSTICAS..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+        </div>
+
+        {/* ✅ SWITCH DE DESTACADOS */}
+        <div className="flex items-center gap-3 pt-4 border-t border-gray-50">
+          <input 
+            type="checkbox" 
+            id="is_featured"
+            className="w-5 h-5 accent-black cursor-pointer"
+            checked={formData.is_featured} 
+            onChange={e => setFormData({...formData, is_featured: e.target.checked})} 
+          />
+          <label htmlFor="is_featured" className="text-[10px] font-black uppercase tracking-widest cursor-pointer select-none">
+            Mostrar en "Destacados" de la página principal
+          </label>
         </div>
       </div>
 

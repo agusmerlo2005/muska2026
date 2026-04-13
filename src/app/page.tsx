@@ -15,9 +15,11 @@ export default function HomePage() {
     setAnimate(true);
 
     async function getProducts() {
+      // ✅ FILTRO POR DESTACADOS
       const { data } = await supabase
         .from('products')
         .select('*, categories(name)')
+        .eq('is_featured', true) // Solo los que Jazmín marcó
         .limit(4);
 
       setProducts(data || []);
@@ -85,7 +87,7 @@ export default function HomePage() {
               price={p.price}
               category={p.categories?.name || 'Objeto'}
               image={p.image_url}
-              stock={p.stock} // ✅ AHORA SÍ: El inicio ya sabe cuánto stock hay
+              stock={p.stock}
             />
           ))}
 
