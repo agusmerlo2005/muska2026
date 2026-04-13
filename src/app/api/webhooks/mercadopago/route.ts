@@ -15,62 +15,45 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    console.log('🔍 DATOS RECIBIDOS DE MP:', JSON.stringify(body));
-
-    const paymentId = body.data?.id || body.resource?.split('/').pop();
+    
+    // Capturamos el ID del pago
+    const paymentId = body.data?.id || (body.type === 'payment' ? body.id : null);
 
     if (paymentId) {
       const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
         headers: { 
-          'Authorization': `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
-          'User-Agent': 'MuskaHome-Admin'
+          'Authorization': `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`
         }
       });
 
+      if (!mpResponse.ok) throw new Error('Error al consultar pago en MP');
+      
       const p = await mpResponse.json();
-      console.log('📋 ESTADO DEL PAGO EN MP:', p.status);
-
       const orderId = p.external_reference;
 
       if (p.status === 'approved' && orderId) {
-        const metadataName = p.metadata?.client_name;
-        const infoName = p.additional_info?.payer?.first_name 
-          ? `${p.additional_info.payer.first_name} ${p.additional_info.payer.last_name || ''}` 
-          : null;
-        const payerName = p.payer?.first_name 
-          ? `${p.payer.first_name} ${p.payer.last_name || ''}` 
-          : null;
+        const fullName = p.metadata?.client_name || p.additional_info?.payer?.first_name || 'Cliente Muska';
+        const customerEmail = p.metadata?.client_email || p.payer?.email;
 
-        const fullName = (metadataName || infoName || payerName || 'Cliente Muska').trim();
-        
-        const phone = p.metadata?.client_phone || 
-                      p.payer?.phone?.number || 
-                      p.additional_info?.payer?.phone?.number || 
-                      'Sin teléfono';
-
-        const customerEmail = p.metadata?.client_email || p.payer?.email || 'sin-email@test.com';
-
+        // 1. ACTUALIZAR ORDEN EN SUPABASE
         const { error: dbError } = await supabase
           .from('orders')
           .update({
             payment_id: paymentId.toString(),
             status: 'approved',
-            total_amount: p.transaction_amount,
-            customer_email: customerEmail,
             customer_name: fullName,
-            customer_phone: phone,
-            items: p.additional_info?.items || [],
+            customer_email: customerEmail,
           })
           .eq('id', orderId);
 
-        if (dbError) {
-          console.error('❌ ERROR ESPECÍFICO DE SUPABASE:', dbError.message);
-          return NextResponse.json({ error: dbError.message }, { status: 200 });
-        } 
+        if (dbError) console.error('Error DB:', dbError.message);
 
-        // ✅ LÓGICA DE DESCUENTO DE STOCK
+        // 2. LÓGICA DE DESCUENTO DE STOCK
         const items = p.additional_info?.items || [];
         for (const item of items) {
+          if (item.id === 'shipping-cost') continue;
+
+          // Buscamos el stock actual del producto por su ID
           const { data: product } = await supabase
             .from('products')
             .select('stock')
@@ -86,24 +69,23 @@ export async function POST(request: Request) {
           }
         }
 
-        // ✅ ENVIAR EMAIL DE CONFIRMACIÓN
-        try {
-          await resend.emails.send({
-            from: 'Muska Home <onboarding@resend.dev>',
-            to: [customerEmail],
-            subject: '¡Confirmamos tu pedido en Muska!',
-            react: OrderConfirmationEmail({ 
-              customerName: fullName, 
-              orderId: orderId, 
-              total: p.transaction_amount 
-            }),
-          });
-          console.log('📧 EMAIL ENVIADO CON ÉXITO A:', customerEmail);
-        } catch (mailError) {
-          console.error('❌ ERROR AL ENVIAR EMAIL:', mailError);
+        // 3. ENVIAR EMAIL DE CONFIRMACIÓN
+        if (customerEmail) {
+          try {
+            await resend.emails.send({
+              from: 'Muska Home <onboarding@resend.dev>',
+              to: [customerEmail],
+              subject: '¡Confirmamos tu pedido en Muska!',
+              react: OrderConfirmationEmail({ 
+                customerName: fullName, 
+                orderId: orderId, 
+                total: p.transaction_amount 
+              }),
+            });
+          } catch (mailError) {
+            console.error('Error Resend:', mailError);
+          }
         }
-        
-        console.log('✅ PEDIDO ACTUALIZADO Y STOCK REDUCIDO:', fullName);
       }
     }
 
