@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ShoppingBag, Menu, X, Home } from 'lucide-react'; // Agregué Home por si querés usar ícono en mobile
+import { ShoppingBag, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/hooks/useCart';
 import Logo from './Logo';
@@ -20,7 +20,6 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Definimos los links incluyendo el de Inicio
   const navLinks = [
     { name: 'Inicio', href: '/' },
     { name: 'Shop', href: '/shop' },
@@ -31,7 +30,8 @@ export default function Navbar() {
     <nav className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-500 ${
       isScrolled ? 'bg-white/80 backdrop-blur-md py-4 shadow-sm' : 'bg-transparent py-6'
     }`}>
-      <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
+      {/* Agregamos 'relative' para que el logo posicionado con 'absolute' se centre respecto a este div */}
+      <div className="max-w-7xl mx-auto px-6 flex justify-between items-center relative h-full">
         
         {/* BOTÓN MENÚ MOBILE */}
         <button className="md:hidden p-2 -ml-2" onClick={() => setIsMobileMenuOpen(true)}>
@@ -51,8 +51,8 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* LOGO CENTRAL */}
-        <div className="absolute left-1/2 -translate-x-1/2">
+        {/* LOGO CENTRAL: Posicionado absolutamente para centro perfecto */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
           <Link href="/">
             <Logo className="w-24 md:w-32" />
           </Link>

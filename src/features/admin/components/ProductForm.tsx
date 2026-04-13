@@ -1,7 +1,7 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
-import { useState, useEffect } from 'react'; // Agregamos useEffect para sincronizar
+import { useState, useEffect } from 'react';
 import { Upload, X } from 'lucide-react';
 
 interface ProductFormProps {
@@ -16,28 +16,43 @@ export default function ProductForm({ categories, productToEdit, onSuccess }: Pr
   const [preview, setPreview] = useState<string | null>(productToEdit?.image_url || null);
   const supabase = createClient();
 
+  // Estados para manejar el filtrado de subcategorías
+  const [filteredSubcategories, setFilteredSubcategories] = useState<any[]>([]);
+
   const [formData, setFormData] = useState({
     name: productToEdit?.name || '',
     price: productToEdit?.price || '',
     category_id: productToEdit?.category_id || '',
+    subcategory_id: productToEdit?.subcategory_id || '', // Nuevo campo
     description: productToEdit?.description || '',
-    stock: productToEdit?.stock ?? 0, // Usamos ?? para que si es 0 no lo tome como vacío
+    stock: productToEdit?.stock ?? 0,
   });
 
-  // Este efecto asegura que si hacés clic en "Editar" en otro producto, 
-  // los datos del formulario se actualicen de verdad.
+  // Sincronización al editar
   useEffect(() => {
     if (productToEdit) {
       setFormData({
         name: productToEdit.name || '',
         price: productToEdit.price || '',
         category_id: productToEdit.category_id || '',
+        subcategory_id: productToEdit.subcategory_id || '',
         description: productToEdit.description || '',
         stock: productToEdit.stock ?? 0,
       });
       setPreview(productToEdit.image_url || null);
+      
+      // Si estamos editando, filtramos las subcategorías iniciales
+      const subs = categories.filter(c => c.parent_id === productToEdit.category_id);
+      setFilteredSubcategories(subs);
     }
-  }, [productToEdit]);
+  }, [productToEdit, categories]);
+
+  // Manejador de cambio de categoría principal
+  const handleCategoryChange = (catId: string) => {
+    setFormData({ ...formData, category_id: catId, subcategory_id: '' });
+    const subs = categories.filter(c => c.parent_id === catId);
+    setFilteredSubcategories(subs);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,8 +77,9 @@ export default function ProductForm({ categories, productToEdit, onSuccess }: Pr
         name: formData.name.toUpperCase(),
         price: parseFloat(formData.price.toString()),
         category_id: formData.category_id,
+        subcategory_id: formData.subcategory_id || null, // Enviamos null si no hay subcategoría
         description: formData.description,
-        stock: parseInt(formData.stock.toString()) || 0, // Aseguramos que sea número
+        stock: parseInt(formData.stock.toString()) || 0,
         image_url,
       };
 
@@ -73,7 +89,7 @@ export default function ProductForm({ categories, productToEdit, onSuccess }: Pr
       } else {
         const { error } = await supabase.from('products').insert([payload]);
         if (error) throw error;
-        setFormData({ name: '', price: '', category_id: '', description: '', stock: 0 });
+        setFormData({ name: '', price: '', category_id: '', subcategory_id: '', description: '', stock: 0 });
         setPreview(null);
       }
 
@@ -133,12 +149,37 @@ export default function ProductForm({ categories, productToEdit, onSuccess }: Pr
           </div>
         </div>
 
-        <div className="space-y-1">
-          <label className={labelClasses}>Categoría</label>
-          <select className={`${inputClasses} appearance-none bg-white`} required value={formData.category_id} onChange={e => setFormData({...formData, category_id: e.target.value})}>
-            <option value="" disabled className="text-gray-200">SELECCIONAR...</option>
-            {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-          </select>
+        {/* SELECTS DE CATEGORÍAS */}
+        <div className="grid grid-cols-2 gap-8">
+          <div className="space-y-1">
+            <label className={labelClasses}>Categoría Principal</label>
+            <select 
+              className={`${inputClasses} appearance-none bg-white`} 
+              required 
+              value={formData.category_id} 
+              onChange={e => handleCategoryChange(e.target.value)}
+            >
+              <option value="" disabled>SELECCIONAR...</option>
+              {categories.filter(c => !c.parent_id).map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label className={labelClasses}>Subcategoría</label>
+            <select 
+              className={`${inputClasses} appearance-none bg-white ${filteredSubcategories.length === 0 ? 'opacity-30' : ''}`} 
+              value={formData.subcategory_id} 
+              onChange={e => setFormData({...formData, subcategory_id: e.target.value})}
+              disabled={filteredSubcategories.length === 0}
+            >
+              <option value="">NINGUNA</option>
+              {filteredSubcategories.map(sub => (
+                <option key={sub.id} value={sub.id}>{sub.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
         
         <div className="space-y-1">

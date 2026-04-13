@@ -8,10 +8,10 @@ import ProductCard from '@/components/ui/ProductCard';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { SlidersHorizontal, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion'; // Importamos lo necesario para el scroll suave visual
 
 const ITEMS_PER_PAGE = 9;
 
-// 1. CREAMOS EL COMPONENTE CON TODA TU LÓGICA
 function ShopContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -49,7 +49,7 @@ function ShopContent() {
       setLoading(false);
     }
     fetchData();
-  }, [selectedCategory, currentPage]);
+  }, [selectedCategory, currentPage, supabase]);
 
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
@@ -57,7 +57,7 @@ function ShopContent() {
     const params = new URLSearchParams(searchParams.toString());
     params.set('page', page.toString());
     router.push(`/shop?${params.toString()}`);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'smooth' }); // Esto ya da scroll suave al subir
   };
 
   return (
@@ -89,7 +89,7 @@ function ShopContent() {
                   price={product.price} 
                   category={'Objeto'} 
                   image={product.image_url}
-                  stock={product.stock} // <-- Agregado sin romper nada
+                  stock={product.stock}
                 />
               ))}
             </div>
@@ -108,28 +108,60 @@ function ShopContent() {
         )}
       </div>
 
-      {isSidebarOpen && (
-        <>
-          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[110]" onClick={() => setIsSidebarOpen(false)} />
-          <div className="fixed top-0 right-0 h-full w-full max-w-xs bg-white z-[120] p-10 shadow-2xl">
-            <div className="flex justify-between items-center mb-16">
-              <h3 className="text-[10px] uppercase tracking-[0.5em] font-black text-xs">Categorías</h3>
-              <button onClick={() => setIsSidebarOpen(false)}><X size={20} /></button>
-            </div>
-            <nav className="flex flex-col gap-6">
-              <Link href="/shop">Todas</Link>
-              {categories.map((cat) => (
-                <Link key={cat.id} href={`/shop?category=${cat.id}`}>{cat.name}</Link>
-              ))}
-            </nav>
-          </div>
-        </>
-      )}
+      {/* SIDEBAR DE FILTROS CON ANIMACIÓN SUAVE */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <>
+            {/* Overlay (Fondo oscuro) */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[110]" 
+              onClick={() => setIsSidebarOpen(false)} 
+            />
+            
+            {/* Panel lateral */}
+            <motion.div 
+              initial={{ x: '100%' }} // Empieza fuera de la pantalla (derecha)
+              animate={{ x: 0 }}      // Entra suavemente
+              exit={{ x: '100%' }}    // Sale suavemente
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed top-0 right-0 h-full w-full max-w-xs bg-white z-[120] p-10 shadow-2xl"
+            >
+              <div className="flex justify-between items-center mb-16">
+                <h3 className="text-[10px] uppercase tracking-[0.5em] font-black">Categorías</h3>
+                <button onClick={() => setIsSidebarOpen(false)} className="hover:rotate-90 transition-transform duration-300">
+                  <X size={20} />
+                </button>
+              </div>
+              <nav className="flex flex-col gap-6">
+                <Link 
+                  href="/shop" 
+                  onClick={() => setIsSidebarOpen(false)}
+                  className={`text-[11px] uppercase tracking-widest font-bold hover:italic transition-all ${!selectedCategory ? 'text-black' : 'text-gray-400'}`}
+                >
+                  Todas
+                </Link>
+                {categories.map((cat) => (
+                  <Link 
+                    key={cat.id} 
+                    href={`/shop?category=${cat.id}`}
+                    onClick={() => setIsSidebarOpen(false)}
+                    className={`text-[11px] uppercase tracking-widest font-bold hover:italic transition-all ${selectedCategory === cat.id ? 'text-black' : 'text-gray-400'}`}
+                  >
+                    {cat.name}
+                  </Link>
+                ))}
+              </nav>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </main>
   );
 }
 
-// 2. EXPORTAMOS LA PÁGINA ENVOLVIÉNDOLA EN SUSPENSE
 export default function ShopPage() {
   return (
     <Suspense fallback={<div className="h-screen flex items-center justify-center font-black uppercase text-[10px]">Cargando Tienda...</div>}>

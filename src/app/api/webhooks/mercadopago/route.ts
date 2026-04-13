@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { Resend } from 'resend';
+import { OrderConfirmationEmail } from '@/components/emails/OrderConfirmation';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,6 +9,8 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: Request) {
   try {
@@ -26,7 +30,6 @@ export async function POST(request: Request) {
       const p = await mpResponse.json();
       console.log('📋 ESTADO DEL PAGO EN MP:', p.status);
 
-      // ✅ Usamos el external_reference para encontrar el pedido que ya creaste en el checkout
       const orderId = p.external_reference;
 
       if (p.status === 'approved' && orderId) {
@@ -45,27 +48,62 @@ export async function POST(request: Request) {
                       p.additional_info?.payer?.phone?.number || 
                       'Sin teléfono';
 
-        // ✅ CAMBIO: De .insert() a .update() usando el ID de la orden
+        const customerEmail = p.metadata?.client_email || p.payer?.email || 'sin-email@test.com';
+
         const { error: dbError } = await supabase
           .from('orders')
           .update({
             payment_id: paymentId.toString(),
             status: 'approved',
             total_amount: p.transaction_amount,
-            customer_email: p.metadata?.client_email || p.payer?.email || 'sin-email@test.com',
+            customer_email: customerEmail,
             customer_name: fullName,
             customer_phone: phone,
             items: p.additional_info?.items || [],
-            // No reseteamos el created_at para mantener la fecha original del pedido
           })
-          .eq('id', orderId); // Buscamos la fila que ya existe
+          .eq('id', orderId);
 
         if (dbError) {
           console.error('❌ ERROR ESPECÍFICO DE SUPABASE:', dbError.message);
           return NextResponse.json({ error: dbError.message }, { status: 200 });
         } 
+
+        // ✅ LÓGICA DE DESCUENTO DE STOCK
+        const items = p.additional_info?.items || [];
+        for (const item of items) {
+          const { data: product } = await supabase
+            .from('products')
+            .select('stock')
+            .eq('id', item.id)
+            .single();
+
+          if (product) {
+            const newStock = Math.max(0, product.stock - Number(item.quantity));
+            await supabase
+              .from('products')
+              .update({ stock: newStock })
+              .eq('id', item.id);
+          }
+        }
+
+        // ✅ ENVIAR EMAIL DE CONFIRMACIÓN
+        try {
+          await resend.emails.send({
+            from: 'Muska Home <onboarding@resend.dev>',
+            to: [customerEmail],
+            subject: '¡Confirmamos tu pedido en Muska!',
+            react: OrderConfirmationEmail({ 
+              customerName: fullName, 
+              orderId: orderId, 
+              total: p.transaction_amount 
+            }),
+          });
+          console.log('📧 EMAIL ENVIADO CON ÉXITO A:', customerEmail);
+        } catch (mailError) {
+          console.error('❌ ERROR AL ENVIAR EMAIL:', mailError);
+        }
         
-        console.log('✅ PEDIDO ACTUALIZADO CON ÉXITO:', fullName);
+        console.log('✅ PEDIDO ACTUALIZADO Y STOCK REDUCIDO:', fullName);
       }
     }
 
