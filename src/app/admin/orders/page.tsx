@@ -19,10 +19,10 @@ export default function AdminOrdersPage() {
         .order('created_at', { ascending: false });
       
       if (filter !== 'TODOS') {
-        // Mapeo exacto para la base de datos
+        // Mapeo exacto para la base de datos actualizado
         const statusMap: { [key: string]: string } = {
           'PENDIENTE': 'pending',
-          'ENVIADO': 'ENVIADO',
+          'PREPARADO': 'PREPARADO',
           'ENTREGADO': 'ENTREGADO'
         };
         query = query.eq('status', statusMap[filter] || filter);
@@ -50,7 +50,7 @@ export default function AdminOrdersPage() {
         </h1>
         
         <div className="flex items-center gap-2 overflow-x-auto pb-4 -mx-6 px-6 no-scrollbar">
-          {['TODOS', 'PENDIENTE', 'ENVIADO', 'ENTREGADO'].map((f) => (
+          {['TODOS', 'PENDIENTE', 'PREPARADO', 'ENTREGADO'].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
