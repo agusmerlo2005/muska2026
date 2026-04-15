@@ -21,14 +21,13 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // 2. BLOQUEO DE SCROLL EN MÓVIL (Para evitar que se superponga el contenido al mover el dedo)
+  // 2. BLOQUEO DE SCROLL EN MÓVIL
   useEffect(() => {
     if (isMobileMenuOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
     }
-    // Limpieza por si el componente se desmonta
     return () => { document.body.style.overflow = 'unset'; };
   }, [isMobileMenuOpen]);
 
@@ -36,6 +35,7 @@ export default function Navbar() {
     { name: 'Inicio', href: '/' },
     { name: 'Shop', href: '/shop' },
     { name: 'Nosotros', href: '/nosotros' },
+    { name: 'Seguimiento', href: '/seguimiento' }, // ✅ Link agregado
   ];
 
   return (
@@ -92,14 +92,13 @@ export default function Navbar() {
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div 
-            initial={{ opacity: 0, x: '-100%' }} // Cambiado a -100% para asegurar salida total
+            initial={{ opacity: 0, x: '-100%' }}
             animate={{ opacity: 1, x: 0 }} 
             exit={{ opacity: 0, x: '-100%' }} 
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             className="fixed inset-0 bg-white z-[200] flex flex-col p-6 md:hidden overflow-hidden"
           >
             <div className="flex justify-between items-center">
-              {/* Logo también en el menú para mantener identidad */}
               <Logo className="w-20" />
               <button onClick={() => setIsMobileMenuOpen(false)} className="p-2">
                 <X size={24} />
@@ -127,7 +126,7 @@ export default function Navbar() {
             
             <div className="pb-10 text-center">
                <p className="text-[8px] uppercase tracking-[0.4em] font-bold text-gray-300">
-                Muska home & deco — 2026
+                 Muska home & deco — 2026
               </p>
             </div>
           </motion.div>
