@@ -5,6 +5,7 @@ import { OrderConfirmationEmail } from '@/components/emails/OrderConfirmation';
 
 export const dynamic = 'force-dynamic';
 
+// Usamos SERVICE_ROLE para poder saltar RLS y actualizar stock internamente
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -20,6 +21,7 @@ export async function POST(request: Request) {
     const paymentId = body.data?.id || (body.type === 'payment' ? body.id : null);
 
     if (paymentId) {
+      // ✅ ESCUDO 1: VERIFICACIÓN CONTRA API OFICIAL (Ya lo tenías, mantenido)
       const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
         headers: { 
           'Authorization': `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`
@@ -31,6 +33,18 @@ export async function POST(request: Request) {
       const p = await mpResponse.json();
       const orderId = p.external_reference;
 
+      // ✅ ESCUDO 2: VERIFICAR QUE EL PAGO NO HAYA SIDO PROCESADO YA
+      const { data: existingOrder } = await supabase
+        .from('orders')
+        .select('status')
+        .eq('id', orderId)
+        .single();
+
+      if (existingOrder?.status === 'approved') {
+        return NextResponse.json({ message: 'Pago ya procesado' }, { status: 200 });
+      }
+
+      // Lógica principal
       if (p.status === 'approved' && orderId) {
         const fullName = p.metadata?.client_name || p.additional_info?.payer?.first_name || 'Cliente Muska';
         const customerEmail = p.metadata?.client_email || p.payer?.email;
@@ -53,7 +67,7 @@ export async function POST(request: Request) {
         for (const item of items) {
           if (item.id === 'shipping-cost') continue;
 
-          // Buscamos el stock actual del producto por su ID
+          // Buscamos el stock actual
           const { data: product } = await supabase
             .from('products')
             .select('stock')
@@ -92,6 +106,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true }, { status: 200 });
   } catch (error: any) {
     console.error('💥 FALLO CRÍTICO EN WEBHOOK:', error.message);
+    // Respondemos 200 para que MP no siga intentando si es un error de código
     return NextResponse.json({ error: error.message }, { status: 200 });
   }
 }

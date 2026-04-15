@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { useState, useEffect } from 'react';
 import { Upload, X } from 'lucide-react';
+import imageCompression from 'browser-image-compression'; // ✅ ESCUDO RENDIMIENTO
 
 interface ProductFormProps {
   categories: any[];
@@ -25,7 +26,7 @@ export default function ProductForm({ categories, productToEdit, onSuccess }: Pr
     subcategory_id: productToEdit?.subcategory_id || '',
     description: productToEdit?.description || '',
     stock: productToEdit?.stock ?? 0,
-    is_featured: productToEdit?.is_featured ?? false, // ✅ NUEVO
+    is_featured: productToEdit?.is_featured ?? false,
   });
 
   useEffect(() => {
@@ -37,7 +38,7 @@ export default function ProductForm({ categories, productToEdit, onSuccess }: Pr
         subcategory_id: productToEdit.subcategory_id || '',
         description: productToEdit.description || '',
         stock: productToEdit.stock ?? 0,
-        is_featured: productToEdit.is_featured ?? false, // ✅ NUEVO
+        is_featured: productToEdit.is_featured ?? false,
       });
       setPreview(productToEdit.image_url || null);
       
@@ -60,11 +61,21 @@ export default function ProductForm({ categories, productToEdit, onSuccess }: Pr
       let image_url = productToEdit?.image_url;
 
       if (image) {
-        const fileExt = image.name.split('.').pop();
+        // ✅ COMPRESIÓN DE IMAGEN (Max 800kb para no perder calidad visual de Muska)
+        const options = {
+          maxSizeMB: 0.8,
+          maxWidthOrHeight: 1200,
+          useWebWorker: true,
+        };
+        
+        const compressedFile = await imageCompression(image, options);
+        
+        const fileExt = compressedFile.name.split('.').pop();
         const fileName = `${Math.random()}.${fileExt}`;
+        
         const { error: uploadError } = await supabase.storage
           .from('products')
-          .upload(fileName, image);
+          .upload(fileName, compressedFile); // Subimos el archivo comprimido
 
         if (uploadError) throw uploadError;
         const { data } = supabase.storage.from('products').getPublicUrl(fileName);
@@ -78,11 +89,12 @@ export default function ProductForm({ categories, productToEdit, onSuccess }: Pr
         subcategory_id: formData.subcategory_id || null,
         description: formData.description,
         stock: parseInt(formData.stock.toString()) || 0,
-        is_featured: formData.is_featured, // ✅ NUEVO
+        is_featured: formData.is_featured,
         image_url,
       };
 
       if (productToEdit) {
+        // ✅ ESCUDO SEGURIDAD: La política RLS de Supabase validará que seas Admin
         const { error } = await supabase.from('products').update(payload).eq('id', productToEdit.id);
         if (error) throw error;
       } else {
@@ -185,7 +197,6 @@ export default function ProductForm({ categories, productToEdit, onSuccess }: Pr
           <textarea rows={3} className={`${inputClasses} resize-none`} placeholder="DETALLES O CARACTERÍSTICAS..." value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
         </div>
 
-        {/* ✅ SWITCH DE DESTACADOS */}
         <div className="flex items-center gap-3 pt-4 border-t border-gray-50">
           <input 
             type="checkbox" 

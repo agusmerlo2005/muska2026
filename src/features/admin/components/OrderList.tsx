@@ -46,14 +46,16 @@ export default function OrderList({ orders, onRefresh }: OrderListProps) {
                 {order.customer_email}
               </p>
             </div>
-            {/* Badge de Estado Dinámico */}
+
+            {/* Badge de Estado Actualizado */}
             <span className={`text-[8px] font-black px-3 py-1 rounded-full uppercase ${
-              order.status === 'approved' || order.status === 'ENVIADO' || order.status === 'ENTREGADO'
+              order.status === 'ENTREGADO'
                 ? 'bg-green-50 text-green-600' 
+                : order.status === 'PREPARADO'
+                ? 'bg-blue-50 text-blue-600'
                 : 'bg-orange-50 text-orange-500'
             }`}>
-              {order.status === 'approved' ? 'PAGADO' : 
-               order.status === 'pending' ? 'PENDIENTE' : order.status?.toUpperCase()}
+              {order.status === 'approved' || order.status === 'pending' ? 'PENDIENTE' : order.status?.toUpperCase()}
             </span>
           </div>
 
@@ -85,41 +87,32 @@ export default function OrderList({ orders, onRefresh }: OrderListProps) {
               </p>
             </div>
             
-            {/* Lógica de Botones de Acción */}
-            
-            {/* ✅ AGREGADO: Botón para casos pendientes */}
-            {order.status === 'pending' && (
-              <button 
-                onClick={() => updateStatus(order.id, 'approved')}
-                className="bg-orange-500 text-white px-6 py-3 text-[9px] font-black uppercase tracking-widest hover:bg-orange-600 transition-all"
-              >
-                Aprobar Pago Manual
-              </button>
-            )}
+            {/* Lógica de Botones de Acción de Jazmín */}
+            <div className="flex gap-2">
+              {(order.status === 'approved' || order.status === 'pending') && (
+                <button 
+                  onClick={() => updateStatus(order.id, 'PREPARADO')}
+                  className="bg-black text-white px-6 py-3 text-[9px] font-black uppercase tracking-widest hover:bg-gray-900 transition-all"
+                >
+                  Marcar como Preparado
+                </button>
+              )}
+              
+              {order.status === 'PREPARADO' && (
+                <button 
+                  onClick={() => updateStatus(order.id, 'ENTREGADO')}
+                  className="bg-green-600 text-white px-6 py-3 text-[9px] font-black uppercase tracking-widest hover:bg-green-700 transition-all"
+                >
+                  Confirmar Entrega
+                </button>
+              )}
 
-            {order.status === 'approved' && (
-              <button 
-                onClick={() => updateStatus(order.id, 'ENVIADO')}
-                className="bg-black text-white px-6 py-3 text-[9px] font-black uppercase tracking-widest hover:bg-gray-900 transition-all"
-              >
-                Marcar Enviado
-              </button>
-            )}
-            
-            {order.status === 'ENVIADO' && (
-              <button 
-                onClick={() => updateStatus(order.id, 'ENTREGADO')}
-                className="bg-green-600 text-white px-6 py-3 text-[9px] font-black uppercase tracking-widest hover:bg-green-700 transition-all"
-              >
-                Marcar Entregado
-              </button>
-            )}
-
-            {order.status === 'ENTREGADO' && (
-              <span className="text-[9px] font-black uppercase text-gray-300 italic border border-gray-100 px-4 py-2">
-                Pedido Finalizado
-              </span>
-            )}
+              {order.status === 'ENTREGADO' && (
+                <span className="text-[9px] font-black uppercase text-gray-300 italic border border-gray-100 px-4 py-2">
+                  Pedido Finalizado
+                </span>
+              )}
+            </div>
           </div>
         </div>
       ))}

@@ -2,21 +2,24 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Package, Truck, CheckCircle, Search } from 'lucide-react';
+import { Package, ShoppingBag, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function TrackingPage() {
   const [orderId, setOrderId] = useState('');
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
 
   const fetchOrder = async (id: string) => {
-    const { data } = await supabase
+    const { data, error: fetchError } = await supabase
       .from('orders')
       .select('*')
       .eq('id', id)
       .single();
+    
+    if (fetchError) return null;
     return data;
   };
 
@@ -24,16 +27,21 @@ export default function TrackingPage() {
     e.preventDefault();
     if (!orderId) return;
     setLoading(true);
+    setError(null);
     const data = await fetchOrder(orderId);
-    setOrder(data);
+    
+    if (!data) {
+      setError('ID DE PEDIDO NO ENCONTRADO');
+      setOrder(null);
+    } else {
+      setOrder(data);
+    }
     setLoading(false);
   };
 
-  // ✅ LÓGICA REALTIME: Escucha cambios en la base de datos
   useEffect(() => {
     if (!order?.id) return;
 
-    // Suscribirse a cambios en la fila específica de esta orden
     const channel = supabase
       .channel(`order-changes-${order.id}`)
       .on(
@@ -46,7 +54,7 @@ export default function TrackingPage() {
         },
         (payload) => {
           console.log('Cambio detectado en tiempo real:', payload.new);
-          setOrder(payload.new); // Actualiza la visual automáticamente
+          setOrder(payload.new);
         }
       )
       .subscribe();
@@ -54,19 +62,20 @@ export default function TrackingPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [order?.id]);
+  }, [order?.id, supabase]);
 
+  // Pasos actualizados a la nueva temática
   const steps = [
-    { label: 'PAGADO', icon: Package, key: 'approved' },
-    { label: 'ENVIADO', icon: ENVIADO_STATUS, key: 'ENVIADO' }, // Ajustado a tus estados del admin
+    { label: 'PENDIENTE', icon: Package, key: 'PENDIENTE' },
+    { label: 'PREPARADO', icon: ShoppingBag, key: 'PREPARADO' },
     { label: 'ENTREGADO', icon: CheckCircle, key: 'ENTREGADO' }
   ];
 
-  // Helper para saber en qué nivel de la línea de tiempo estamos
   const getStatusIndex = (status: string) => {
-    if (status === 'approved' || status === 'pending') return 0;
-    if (status === 'ENVIADO') return 1;
-    if (status === 'ENTREGADO') return 2;
+    const s = status?.toUpperCase();
+    if (s === 'APPROVED' || s === 'PENDING') return 0;
+    if (s === 'PREPARADO') return 1;
+    if (s === 'ENTREGADO') return 2;
     return 0;
   };
 
@@ -86,10 +95,16 @@ export default function TrackingPage() {
             value={orderId}
             onChange={(e) => setOrderId(e.target.value)}
           />
-          <button className="bg-black text-white px-10 py-4 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all">
+          <button 
+            type="submit"
+            disabled={loading}
+            className="bg-black text-white px-10 py-4 text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+          >
             {loading ? 'BUSCANDO...' : 'BUSCAR'}
           </button>
         </form>
+
+        {error && <p className="text-[10px] font-black text-red-500 mb-10 tracking-widest uppercase">{error}</p>}
 
         <AnimatePresence>
           {order && (
@@ -98,7 +113,6 @@ export default function TrackingPage() {
               animate={{ opacity: 1, y: 0 }}
               className="border border-gray-100 p-8 md:p-12 relative overflow-hidden"
             >
-              {/* LÍNEA DE TIEMPO */}
               <div className="flex justify-between mb-16 relative">
                 <div className="absolute top-7 left-0 w-full h-[1px] bg-gray-100 -z-0" />
                 
@@ -129,7 +143,7 @@ export default function TrackingPage() {
                   <div>
                     <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Estado Actual</p>
                     <p className="text-xl font-black uppercase italic tracking-tighter text-black">
-                      {order.status === 'approved' ? 'PREPARANDO PEDIDO' : order.status}
+                      {currentIndex === 0 ? 'PEDIDO RECIBIDO' : order.status?.toUpperCase()}
                     </p>
                   </div>
                   <div className="text-right">
@@ -139,9 +153,9 @@ export default function TrackingPage() {
                 </div>
                 
                 <p className="text-[11px] text-gray-500 leading-relaxed uppercase font-medium">
-                  {order.status === 'approved' && "Jazmín ya recibió tu pago y está preparando el paquete. Te avisaremos cuando sea despachado."}
-                  {order.status === 'ENVIADO' && "¡Tu pedido está en camino! Recordá tener tu teléfono a mano por cualquier coordinación del correo."}
-                  {order.status === 'ENTREGADO' && "El pedido figura como entregado. ¡Esperamos que disfrutes tus productos de Muska!"}
+                  {currentIndex === 0 && "Recibimos tu pedido correctamente. Jazmín ya está al tanto y comenzará a prepararlo a la brevedad."}
+                  {order.status?.toUpperCase() === 'PREPARADO' && "¡Tu pedido ya está listo! Podés pasar a retirarlo o Jazmín te avisará para coordinar la entrega."}
+                  {order.status?.toUpperCase() === 'ENTREGADO' && "El pedido figura como entregado. ¡Esperamos que disfrutes tus productos de Muska!"}
                 </p>
               </div>
             </motion.div>
@@ -151,5 +165,3 @@ export default function TrackingPage() {
     </div>
   );
 }
-
-const ENVIADO_STATUS = Truck; // Alias para el icono
