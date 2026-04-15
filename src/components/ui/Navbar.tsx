@@ -2,17 +2,24 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation'; // Importado para detectar la ruta
 import { ShoppingBag, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '@/hooks/useCart';
 import Logo from './Logo';
 
 export default function Navbar() {
+  const pathname = usePathname(); // Obtenemos la ruta actual
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const openCart = useCart((state) => state.openCart);
   const cartCount = useCart((state) => state.cart.reduce((acc, item) => acc + item.quantity, 0));
+
+  // VALIDACIÓN: Si es login o admin, no renderiza el Navbar
+  if (pathname === '/login' || pathname?.startsWith('/admin')) {
+    return null;
+  }
 
   // 1. Manejo del scroll de la página (para el estilo de la Navbar)
   useEffect(() => {
@@ -35,7 +42,7 @@ export default function Navbar() {
     { name: 'Inicio', href: '/' },
     { name: 'Shop', href: '/shop' },
     { name: 'Nosotros', href: '/nosotros' },
-    { name: 'Seguimiento', href: '/seguimiento' }, // ✅ Link agregado
+    { name: 'Seguimiento', href: '/seguimiento' },
   ];
 
   return (
@@ -126,7 +133,7 @@ export default function Navbar() {
             
             <div className="pb-10 text-center">
                <p className="text-[8px] uppercase tracking-[0.4em] font-bold text-gray-300">
-                 Muska home & deco — 2026
+                  Muska home & deco — 2026
               </p>
             </div>
           </motion.div>
