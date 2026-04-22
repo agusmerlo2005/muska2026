@@ -1,14 +1,32 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 export default function ProductGrid({ products }: { products: any[] }) {
+  // Estado para manejar cuántos productos mostrar según el dispositivo
+  const [displayLimit, setDisplayLimit] = useState(12); // Empezamos con el de PC por defecto
+
+  useEffect(() => {
+    // Función para detectar si es mobile y setear el límite de 10
+    const updateLimit = () => {
+      const isMobile = window.innerWidth < 768;
+      setDisplayLimit(isMobile ? 10 : 12);
+    };
+
+    updateLimit(); // Ejecutamos al montar
+    window.addEventListener('resize', updateLimit);
+    return () => window.removeEventListener('resize', updateLimit);
+  }, []);
+
   if (!products || products.length === 0) return null;
+
+  // Cortamos el array de productos según el límite detectado
+  const visibleProducts = products.slice(0, displayLimit);
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-      {products.map((product) => {
-        // Usamos la misma lógica que el detalle donde SÍ se ve la foto
+      {visibleProducts.map((product) => {
         const imagenFinal = product.image_url || product.image || product.imagen;
 
         return (

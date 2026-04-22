@@ -10,8 +10,6 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { SlidersHorizontal, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const ITEMS_PER_PAGE = 9;
-
 function ShopContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -23,32 +21,41 @@ function ShopContent() {
   const [categories, setCategories] = useState<any[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  
+  // ✅ Estado dinámico para la cantidad por página
+  const [itemsPerPage, setItemsPerPage] = useState(12);
 
   const supabase = createClient();
+
+  useEffect(() => {
+    // Definimos el límite apenas carga o cambia el tamaño
+    const updateLimit = () => {
+      setItemsPerPage(window.innerWidth < 768 ? 10 : 12);
+    };
+    
+    updateLimit();
+    window.addEventListener('resize', updateLimit);
+    return () => window.removeEventListener('resize', updateLimit);
+  }, []);
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
       
-      // Traemos todas las categorías (principales y subs)
       const { data: catData } = await supabase.from('categories').select('*').order('name');
       setCategories(catData || []);
 
-      const from = (currentPage - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
+      // ✅ Ahora usamos itemsPerPage dinámico para el rango
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
 
       let query = supabase.from('products').select('*', { count: 'exact' });
 
       if (selectedCategory) {
-        // Buscamos si la categoría seleccionada tiene hijos (es una principal)
         const subIds = catData?.filter(c => c.parent_id === selectedCategory).map(c => c.id) || [];
-        
         if (subIds.length > 0) {
-          // Si es principal, mostramos productos de la principal O de sus subcategorías
           query = query.or(`category_id.eq.${selectedCategory},subcategory_id.in.(${subIds.join(',')})`);
         } else {
-          // Si es una subcategoría (o principal sin hijos), filtramos normal
-          // Probamos filtrar por ambos campos por seguridad
           query = query.or(`category_id.eq.${selectedCategory},subcategory_id.eq.${selectedCategory}`);
         }
       }
@@ -62,9 +69,9 @@ function ShopContent() {
       setLoading(false);
     }
     fetchData();
-  }, [selectedCategory, currentPage, supabase]);
+  }, [selectedCategory, currentPage, supabase, itemsPerPage]); // ✅ Se dispara si cambia itemsPerPage
 
-  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   const goToPage = (page: number) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -73,7 +80,6 @@ function ShopContent() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Organizamos las categorías para el Sidebar
   const mainCategories = categories.filter(c => !c.parent_id);
 
   return (
@@ -96,6 +102,7 @@ function ShopContent() {
           </div>
         ) : (
           <>
+            {/* ✅ Grilla actualizada para ser consistente con el diseño */}
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-x-4 md:gap-x-8 gap-y-12 md:gap-y-16">
               {products.map((product) => (
                 <ProductCard 
@@ -109,6 +116,7 @@ function ShopContent() {
                 />
               ))}
             </div>
+
             {totalPages > 1 && (
               <div className="mt-20 flex justify-center items-center gap-8 border-t border-gray-100 pt-10">
                 <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} className="disabled:opacity-10 hover:scale-110 transition-transform text-black">
@@ -124,6 +132,7 @@ function ShopContent() {
         )}
       </div>
 
+      {/* Sidebar de categorías (Sin cambios para no romper nada) */}
       <AnimatePresence>
         {isSidebarOpen && (
           <>
@@ -171,7 +180,6 @@ function ShopContent() {
                         {cat.name}
                       </Link>
                       
-                      {/* Listado de Subcategorías */}
                       {subItems.length > 0 && (
                         <div className="flex flex-col gap-3 ml-4 border-l border-gray-100 pl-4">
                           {subItems.map((sub) => (
