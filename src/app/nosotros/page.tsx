@@ -21,12 +21,11 @@ export default function NosotrosPage() {
           <div className="space-y-10">
             <div className="space-y-6 text-lg leading-relaxed tracking-tight text-black/80">
               <p>
-                MUSKA nació en 2025 como un puente entre la calma de Armstrong y la vibrante energía creativa de Rosario. 
-                Creada por Jazmín De Grande, la marca es el resultado de una búsqueda personal por democratizar el buen diseño en los objetos cotidianos.
+                MUSKA nace en 2025 como una marca fundada por Jazmín De Grande Muscatelo, a partir de una búsqueda personal por crear un universo donde diseño y vida cotidiana se encuentren. Su nombre surge inspirado en una antigua raíz familiar del apellido, escrito originalmente Moškatelo, del cual MUSKA toma su esencia como homenaje al origen, la identidad y la herencia que inspira la marca.
+
               </p>
               <p>
-                Como estudiante de Diseño de Interiores, Jazmín fusiona su formación técnica con una pasión innata por el bazar y la estética funcional. 
-                Cada pieza en nuestra tienda no es elegida al azar; es seleccionada bajo la premisa de que lo que usamos todos los días —desde una taza hasta un estante— define la atmósfera de nuestro hogar.
+                Desde una mirada vinculada al Diseño de Interiores, MUSKA propone una curaduría de objetos de bazar y decoración seleccionados por su estética, funcionalidad y capacidad de transformar los espacios. Cada pieza es elegida pensando en acercar el buen diseño a lo cotidiano, con objetos que aporten calidez, armonía y personalidad al hogar.
               </p>
             </div>
 
@@ -36,7 +35,7 @@ export default function NosotrosPage() {
                 "Creo que los espacios que habitamos cuentan nuestra historia. Mi misión con Muska es ayudar a que esa historia sea bella, funcional y llena de detalles que inspiren."
               </p>
               <p className="mt-4 text-[10px] uppercase tracking-widest font-bold text-black">
-                — Jazmín De Grande, owner de Muska
+                — Jazmín De Grande Muscatelo, owner de Muska
               </p>
             </div>
           </div>
@@ -65,15 +64,15 @@ export default function NosotrosPage() {
               className="object-cover transition-transform duration-700 group-hover:scale-105" 
             />
             <div className="absolute bottom-4 left-4 text-[9px] uppercase tracking-widest text-black bg-white/80 px-2 py-1 backdrop-blur-sm">
-              Experiencia de visita
+              Vista de producto
             </div>
           </div>
 
           {/* Texto Central */}
           <div className="text-center pb-12 space-y-4 px-4 order-first md:order-none">
-            <h3 className="text-xs uppercase tracking-[0.4em] font-black text-black">La Curaduría</h3>
+            <h3 className="text-xs uppercase tracking-[0.4em] font-black text-black">Filosofía MUSKA</h3>
             <p className="text-sm text-gray-500 leading-relaxed tracking-wide">
-              Seleccionamos materiales nobles y objetos que equilibran la técnica del diseño de interiores con la calidez del hogar.
+              “Creemos en objetos cotidianos que elevan la experiencia del habitar a través del diseño.”
             </p>
           </div>
 
