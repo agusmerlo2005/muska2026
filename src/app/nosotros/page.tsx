@@ -98,13 +98,12 @@ export default function NosotrosPage() {
               Objetos pensados para durar, diseñados para ser vistos y creados para ser usados.
             </p>
           </div>
-          <div className="text-right">
-            <h4 className="text-[10px] uppercase tracking-[0.4em] font-black mb-4 text-black">Ubicación</h4>
-            <p className="text-xs text-gray-400 uppercase tracking-wider">
-              Armstrong y Rosario — Santa Fe <br />
-              Argentina
-            </p>
-          </div>
+          <div className="flex flex-col items-start text-left gap-2">
+  <h3 className="text-[10px] font-black uppercase tracking-[0.5em] text-black">Ubicación</h3>
+  <p className="text-[11px] text-gray-500 uppercase tracking-widest">
+    Armstrong y Rosario — Santa Fe, Argentina
+  </p>
+</div>
         </div>
 
       </div>

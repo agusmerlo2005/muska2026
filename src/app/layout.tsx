@@ -2,13 +2,15 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import ClientLayout from "./ClientLayout";
+import Footer from "@/components/ui/Footer"; // ✅ Importamos tu Footer
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  // ✅ Se agrega metadataBase para resolver las rutas de las imágenes sociales
+  metadataBase: new URL('https://muska2026.vercel.app'),
   title: "MUSKA. | Store & Admin",
   description: "Handmade Candles & Decor",
-  // ✅ Agregado para previsualización en redes (WhatsApp, IG, etc.)
   openGraph: {
     title: "MUSKA. | Store & Admin",
     description: "Handmade Candles & Decor",
@@ -16,7 +18,7 @@ export const metadata: Metadata = {
     siteName: "Muska Home",
     images: [
       {
-        url: "/og-image.jpg", // Asegurate de poner una imagen con este nombre en tu carpeta /public
+        url: "/og-image.jpg",
         width: 1200,
         height: 630,
         alt: "Muska Home & Deco",
@@ -25,7 +27,6 @@ export const metadata: Metadata = {
     locale: "es_AR",
     type: "website",
   },
-  // ✅ Agregado para compatibilidad con Twitter/X
   twitter: {
     card: "summary_large_image",
     title: "MUSKA. | Store & Admin",
@@ -50,7 +51,15 @@ export default function RootLayout({
     <html lang="es">
       <body className={`${inter.className} bg-white antialiased`}>
         <ClientLayout>
-          {children}
+          {/* Usamos una estructura mínima para que el contenido 
+              empuje al footer hacia abajo 
+          */}
+          <div className="flex flex-col min-h-screen">
+            <main className="flex-grow">
+              {children}
+            </main>
+            <Footer /> {/* ✅ Tu publicidad personal conectada aquí */}
+          </div>
         </ClientLayout>
       </body>
     </html>

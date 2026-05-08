@@ -108,16 +108,16 @@ export default function ProductDetailPage() {
 
               <button 
                 onClick={() => {
-                  for(let i = 0; i < quantity; i++) {
-                    addItem({
-                      id: product.id,
-                      name: product.name,
-                      price: product.price,
-                      image: product.image_url || product.image,
-                      slug: product.id,
-                      quantity: 1
-                    });
-                  }
+                  // Agregamos al carrito sin llamar a openCart()
+                  addItem({
+                    id: product.id,
+                    name: product.name,
+                    price: product.price,
+                    image: product.image_url || product.image,
+                    slug: product.id,
+                    quantity: quantity,
+                    stock: product.stock || 10
+                  });
                 }}
                 className="w-full bg-black text-white py-6 text-[10px] uppercase font-black tracking-[0.5em] hover:bg-gray-800 transition-colors"
               >
