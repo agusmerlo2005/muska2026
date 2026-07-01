@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request: Request) {
   try {
@@ -9,7 +9,12 @@ export async function POST(request: Request) {
     const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
     const baseURL = "https://muska2026.vercel.app";
 
-    const supabase = await createClient();
+    // El pedido se crea server-side con SERVICE_ROLE: seguro y sin exponer
+    // un INSERT abierto en las políticas RLS de la tabla orders.
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
     // 1. CREAR EL PEDIDO EN LA DB
     const { data: order, error: orderError } = await supabase
