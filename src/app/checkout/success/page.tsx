@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle2, Package, Clipboard, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { saveRecentOrder } from '@/lib/recentOrders';
 
 // Componente interno para manejar los parámetros de búsqueda de forma segura en Next.js
 function SuccessContent() {
@@ -16,6 +17,8 @@ function SuccessContent() {
     // Capturamos el ID que viene de Mercado Pago o de tu redirección interna
     const id = searchParams.get('external_reference') || searchParams.get('payment_id');
     setOrderId(id);
+    // Guardamos el ID en el navegador para que no lo pierda aunque cierre la página.
+    if (id) saveRecentOrder(id);
   }, [searchParams]);
 
   const copyToClipboard = () => {

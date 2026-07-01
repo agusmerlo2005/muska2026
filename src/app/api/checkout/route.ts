@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { Resend } from 'resend';
+import { OrderConfirmationEmail } from '@/components/emails/OrderConfirmation';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: Request) {
   try {
@@ -33,6 +37,28 @@ export async function POST(request: Request) {
     if (orderError) {
       console.error('Error al insertar en Supabase:', orderError);
       return NextResponse.json({ error: 'Error al registrar el pedido' }, { status: 500 });
+    }
+
+    // 1.b ENVIAR EL ID DE SEGUIMIENTO POR MAIL (apenas se crea el pedido,
+    //     así el cliente no lo pierde aunque cierre la página o el pago quede pendiente)
+    if (formData?.email) {
+      try {
+        await resend.emails.send({
+          from: 'Muska Home <onboarding@resend.dev>',
+          to: [formData.email],
+          subject: 'Recibimos tu pedido en Muska · Guardá tu ID de seguimiento',
+          react: OrderConfirmationEmail({
+            customerName: formData?.name || 'Cliente Muska',
+            orderId: order.id,
+            total: Number(total),
+            trackingUrl: `${baseURL}/seguimiento?id=${order.id}`,
+            intro: 'Recibimos tu pedido correctamente. Cuando se acredite el pago te lo confirmamos por este mismo medio. Mientras tanto, guardá tu ID de seguimiento:',
+          }),
+        });
+      } catch (mailError) {
+        // Si falla el mail, no cortamos el checkout: el pedido igual se creó.
+        console.error('Error Resend (checkout):', mailError);
+      }
     }
 
     // 2. PREPARAR ITEMS PARA MERCADO PAGO

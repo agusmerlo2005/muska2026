@@ -90,10 +90,11 @@ export async function POST(request: Request) {
               from: 'Muska Home <onboarding@resend.dev>',
               to: [customerEmail],
               subject: '¡Confirmamos tu pedido en Muska!',
-              react: OrderConfirmationEmail({ 
-                customerName: fullName, 
-                orderId: orderId, 
-                total: p.transaction_amount 
+              react: OrderConfirmationEmail({
+                customerName: fullName,
+                orderId: orderId,
+                total: p.transaction_amount,
+                trackingUrl: `https://muska2026.vercel.app/seguimiento?id=${orderId}`,
               }),
             });
           } catch (mailError) {

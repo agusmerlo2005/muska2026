@@ -2,14 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Package, ShoppingBag, CheckCircle } from 'lucide-react';
+import { Package, ShoppingBag, CheckCircle, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getRecentOrders, type RecentOrder } from '@/lib/recentOrders';
 
 export default function TrackingPage() {
   const [orderId, setOrderId] = useState('');
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recent, setRecent] = useState<RecentOrder[]>([]);
   const supabase = createClient();
 
   const fetchOrder = async (id: string) => {
@@ -18,18 +20,19 @@ export default function TrackingPage() {
       .select('*')
       .eq('id', id)
       .single();
-    
+
     if (fetchError) return null;
     return data;
   };
 
-  const handleTrack = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!orderId) return;
+  // Busca un pedido por ID (usado por el form, el link del mail y la lista de recientes).
+  const runSearch = async (id: string) => {
+    if (!id) return;
+    setOrderId(id);
     setLoading(true);
     setError(null);
-    const data = await fetchOrder(orderId);
-    
+    const data = await fetchOrder(id);
+
     if (!data) {
       setError('ID DE PEDIDO NO ENCONTRADO');
       setOrder(null);
@@ -38,6 +41,19 @@ export default function TrackingPage() {
     }
     setLoading(false);
   };
+
+  const handleTrack = (e: React.FormEvent) => {
+    e.preventDefault();
+    runSearch(orderId);
+  };
+
+  // Al montar: cargamos los pedidos guardados en el navegador y, si vino
+  // desde el link del mail (/seguimiento?id=XXX), buscamos ese pedido solo.
+  useEffect(() => {
+    setRecent(getRecentOrders());
+    const id = new URLSearchParams(window.location.search).get('id');
+    if (id) runSearch(id);
+  }, []);
 
   useEffect(() => {
     if (!order?.id) return;
@@ -105,6 +121,29 @@ export default function TrackingPage() {
         </form>
 
         {error && <p className="text-[10px] font-black text-red-500 mb-10 tracking-widest uppercase">{error}</p>}
+
+        {!order && recent.length > 0 && (
+          <div className="mb-16">
+            <div className="flex items-center gap-2 mb-4 text-gray-400">
+              <Clock size={12} />
+              <h3 className="text-[10px] uppercase font-black tracking-[0.3em]">Tus pedidos recientes</h3>
+            </div>
+            <div className="space-y-2">
+              {recent.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => runSearch(r.id)}
+                  className="w-full flex items-center justify-between border border-gray-100 px-5 py-4 text-left hover:border-black transition-all group"
+                >
+                  <span className="text-xs font-bold tracking-tight text-black truncate pr-4">{r.id}</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-gray-300 group-hover:text-black whitespace-nowrap">
+                    Ver →
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <AnimatePresence>
           {order && (
