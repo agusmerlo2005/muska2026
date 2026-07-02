@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
-import { OrderConfirmationEmail } from '@/components/emails/OrderConfirmation';
+import { orderConfirmationHtml } from '@/components/emails/templates';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
           from: 'Muska Home <onboarding@resend.dev>',
           to: [formData.email],
           subject: 'Recibimos tu pedido en Muska · Guardá tu ID de seguimiento',
-          react: OrderConfirmationEmail({
+          html: orderConfirmationHtml({
             customerName: formData?.name || 'Cliente Muska',
             orderId: order.id,
             total: Number(total),

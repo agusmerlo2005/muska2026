@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
-import { OrderConfirmationEmail } from '@/components/emails/OrderConfirmation';
-import { NewSaleAdminEmail } from '@/components/emails/NewSaleAdmin';
+import { orderConfirmationHtml, newSaleAdminHtml } from '@/components/emails/templates';
 
 export const dynamic = 'force-dynamic';
 
@@ -92,7 +91,7 @@ export async function POST(request: Request) {
               from: 'Muska Home <onboarding@resend.dev>',
               to: [customerEmail],
               subject: '¡Confirmamos tu pedido en Muska!',
-              react: OrderConfirmationEmail({
+              html: orderConfirmationHtml({
                 customerName: fullName,
                 orderId: orderId,
                 total: p.transaction_amount,
@@ -110,7 +109,7 @@ export async function POST(request: Request) {
             from: 'Muska Home <onboarding@resend.dev>',
             to: ['muska.homeydeco@gmail.com'],
             subject: `🎉 Nueva venta de ${fullName} · Muska`,
-            react: NewSaleAdminEmail({
+            html: newSaleAdminHtml({
               customerName: fullName,
               customerEmail: customerEmail || 'No informado',
               customerPhone: customerPhone,
