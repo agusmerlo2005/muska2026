@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { OrderConfirmationEmail } from '@/components/emails/OrderConfirmation';
+import { NewSaleAdminEmail } from '@/components/emails/NewSaleAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,6 +49,7 @@ export async function POST(request: Request) {
       if (p.status === 'approved' && orderId) {
         const fullName = p.metadata?.client_name || p.additional_info?.payer?.first_name || 'Cliente Muska';
         const customerEmail = p.metadata?.client_email || p.payer?.email;
+        const customerPhone = p.metadata?.client_phone || p.additional_info?.payer?.phone?.number || null;
 
         // 1. ACTUALIZAR ORDEN EN SUPABASE
         const { error: dbError } = await supabase
@@ -100,6 +102,24 @@ export async function POST(request: Request) {
           } catch (mailError) {
             console.error('Error Resend:', mailError);
           }
+        }
+
+        // 4. AVISAR A JAZMÍN (admin) DE LA NUEVA VENTA
+        try {
+          await resend.emails.send({
+            from: 'Muska Home <onboarding@resend.dev>',
+            to: ['muska.homeydeco@gmail.com'],
+            subject: `🎉 Nueva venta de ${fullName} · Muska`,
+            react: NewSaleAdminEmail({
+              customerName: fullName,
+              customerEmail: customerEmail || 'No informado',
+              customerPhone: customerPhone,
+              orderId: orderId,
+              total: p.transaction_amount,
+            }),
+          });
+        } catch (adminMailError) {
+          console.error('Error Resend (admin):', adminMailError);
         }
       }
     }
