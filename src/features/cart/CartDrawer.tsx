@@ -56,9 +56,9 @@ export default function CartDrawer() {
                         <img src={item.image} alt={item.name} className="object-cover h-full w-full" />
                       </div>
                       <div className="flex-1 flex flex-col justify-between py-1">
-                        <div className="flex justify-between items-start">
+                        <div className="flex justify-between items-start gap-3">
                           <h3 className="text-[10px] uppercase font-black text-black leading-tight max-w-[150px] italic">{item.name}</h3>
-                          <p className="text-[10px] font-bold text-black">${item.price.toLocaleString()}</p>
+                          <p className="text-[10px] font-bold text-black whitespace-nowrap shrink-0">${item.price.toLocaleString()}</p>
                         </div>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center border border-gray-100">

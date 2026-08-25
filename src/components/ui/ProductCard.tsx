@@ -53,21 +53,21 @@ export default function ProductCard({ id, name, price, category, image, stock = 
       </Link>
 
       <div className="mt-4 flex flex-col gap-1">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center gap-2">
           <span className="text-[9px] uppercase tracking-[0.3em] text-gray-400 font-black">
             {category}
           </span>
           {!isOutOfStock && currentStock > 3 && (
-            <span className="text-[8px] uppercase font-bold text-gray-300 tracking-widest">
+            <span className="text-[8px] uppercase font-bold text-gray-300 tracking-widest whitespace-nowrap shrink-0">
               Stock: {currentStock}
             </span>
           )}
         </div>
-        <div className="flex justify-between items-baseline">
-          <h3 className="text-[11px] uppercase font-bold tracking-tight text-black">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
+          <h3 className="text-[11px] uppercase font-bold tracking-tight text-black min-w-0 break-words">
             {name}
           </h3>
-          <p className="text-[11px] font-bold text-black">
+          <p className="text-[11px] font-bold text-black whitespace-nowrap sm:shrink-0">
             ${price.toLocaleString()}
           </p>
         </div>
