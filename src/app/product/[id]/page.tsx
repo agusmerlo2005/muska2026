@@ -1,7 +1,7 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client'; 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useCart } from '@/hooks/useCart';
 import { Plus, Minus, ArrowLeft } from 'lucide-react';
@@ -12,9 +12,10 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
+  const [added, setAdded] = useState(false);
+  const addedTimer = useRef<ReturnType<typeof setTimeout>>();
   
   const addItem = useCart((state) => state.addItem);
-  const openCart = useCart((state) => state.openCart);
   const supabase = createClient();
 
   useEffect(() => {
@@ -26,6 +27,9 @@ export default function ProductDetailPage() {
     };
     fetchProduct();
   }, [id, supabase]);
+
+  // Evita el setState si el usuario se va de la pagina antes de que corra
+  useEffect(() => () => clearTimeout(addedTimer.current), []);
 
   if (loading) return (
     <div className="h-screen flex items-center justify-center bg-white">
@@ -55,7 +59,11 @@ export default function ProductDetailPage() {
       quantity: quantity, // ✅ Manda el número exacto del selector
       stock: productStock
     });
-    openCart();
+
+    // Feedback en el boton; el carrito ya no se abre solo
+    setAdded(true);
+    clearTimeout(addedTimer.current);
+    addedTimer.current = setTimeout(() => setAdded(false), 1800);
   };
 
   return (
@@ -106,9 +114,10 @@ export default function ProductDetailPage() {
 
                   <button 
                     onClick={handleAddToCart}
+                    aria-live="polite"
                     className="w-full bg-black text-white py-6 text-[11px] uppercase font-black tracking-[0.5em] hover:bg-zinc-900 transition-colors"
                   >
-                    Añadir al carrito
+                    {added ? "Añadido al carrito" : "Añadir al carrito"}
                   </button>
                 </>
               ) : (
