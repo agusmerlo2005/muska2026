@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       // ✅ ESCUDO 2: VERIFICAR QUE EL PAGO NO HAYA SIDO PROCESADO YA
       const { data: existingOrder } = await supabase
         .from('orders')
-        .select('status')
+        .select('status, total_amount')
         .eq('id', orderId)
         .single();
 
@@ -44,6 +44,18 @@ export async function POST(request: Request) {
         return NextResponse.json({ message: 'Pago ya procesado' }, { status: 200 });
       }
 
+      // ✅ ESCUDO 3: EL MONTO PAGADO DEBE COINCIDIR CON EL DEL PEDIDO
+      // Sin esto, alguien que manipule el checkout puede pagar $1 por algo de
+      // $142.900 y el webhook lo aprueba igual, descontando el stock.
+      const esperado = Number(existingOrder?.total_amount);
+      const pagado = Number(p.transaction_amount);
+
+      if (Number.isFinite(esperado) && esperado > 0 && Math.abs(pagado - esperado) > 1) {
+        console.error(
+          `🚨 MONTO NO COINCIDE en el pedido ${orderId}: se pago ${pagado} y el pedido era de ${esperado}. No se aprueba ni se descuenta stock.`
+        );
+        return NextResponse.json({ message: 'Monto no coincide' }, { status: 200 });
+      }
       // Lógica principal
       if (p.status === 'approved' && orderId) {
         const fullName = p.metadata?.client_name || p.additional_info?.payer?.first_name || 'Cliente Muska';

@@ -50,7 +50,7 @@ export default function CheckoutPage() {
       if (data.init_point) {
         window.location.href = data.init_point;
       } else {
-        alert('Hubo un error al procesar el pago.');
+        alert(data.error || 'Hubo un error al procesar el pago.');
       }
     } catch (error) {
       console.error(error);

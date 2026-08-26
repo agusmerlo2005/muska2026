@@ -1,35 +1,118 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
+import { z } from 'zod';
 import { orderConfirmationHtml } from '@/components/emails/templates';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+const BASE_URL = 'https://muska2026.vercel.app';
+
+/**
+ * Del carrito aceptamos UNICAMENTE que se compra y cuanta cantidad.
+ *
+ * El precio NO se acepta del cliente: el carrito vive en localStorage, asi que
+ * cualquiera puede editarlo con devtools y pagar lo que quiera. Los precios se
+ * leen de la base mas abajo. Las claves de mas que manda el carrito (name,
+ * price, image, slug, stock) las descarta zod solo.
+ */
+const checkoutSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        quantity: z.number().int().positive().max(99),
+      })
+    )
+    .min(1)
+    .max(50),
+  formData: z
+    .object({
+      name: z.string().trim().max(120).optional(),
+      email: z.union([z.string().trim().email().max(200), z.literal('')]).optional(),
+      phone: z.string().trim().max(40).optional(),
+      province: z.string().trim().max(80).optional(),
+    })
+    .optional(),
+});
+
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { items, formData, shippingCost, total } = body;
+    const parsed = checkoutSchema.safeParse(await request.json());
 
-    const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
-    const baseURL = "https://muska2026.vercel.app";
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'El pedido no es valido.' }, { status: 400 });
+    }
 
-    // El pedido se crea server-side con SERVICE_ROLE: seguro y sin exponer
-    // un INSERT abierto en las políticas RLS de la tabla orders.
+    const { items, formData } = parsed.data;
+
+    // Agrupamos por id: si mandan el mismo producto en varias lineas, cuenta
+    // como una sola cantidad y el chequeo de stock no se puede esquivar.
+    const pedidas = new Map<string, number>();
+    for (const item of items) {
+      pedidas.set(item.id, (pedidas.get(item.id) ?? 0) + item.quantity);
+    }
+
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // 1. CREAR EL PEDIDO EN LA DB
+    // FUENTE DE VERDAD: precio y stock salen de la base, no del navegador.
+    const { data: productos, error: productsError } = await supabase
+      .from('products')
+      .select('id, name, price, stock')
+      .in('id', Array.from(pedidas.keys()));
+
+    if (productsError) {
+      console.error('Error al leer productos:', productsError);
+      return NextResponse.json({ error: 'No pudimos validar el pedido.' }, { status: 500 });
+    }
+
+    const lineas: { id: string; name: string; price: number; quantity: number }[] = [];
+
+    for (const [id, quantity] of Array.from(pedidas.entries())) {
+      const producto = productos?.find((p) => p.id === id);
+
+      if (!producto) {
+        return NextResponse.json(
+          { error: 'Uno de los productos ya no esta disponible. Actualiza el carrito.' },
+          { status: 400 }
+        );
+      }
+
+      if (Number(producto.stock) < quantity) {
+        return NextResponse.json(
+          {
+            error: `Nos queda${Number(producto.stock) === 1 ? '' : 'n'} ${producto.stock} de "${producto.name}" y estas pidiendo ${quantity}.`,
+          },
+          { status: 409 }
+        );
+      }
+
+      lineas.push({
+        id: producto.id,
+        name: producto.name,
+        price: Number(producto.price),
+        quantity,
+      });
+    }
+
+    // El envio tampoco se toma del body. Hoy es siempre retiro en local; cuando
+    // se active el envio hay que resolverlo contra la tabla shipping_rates aca.
+    const shippingCost = 0;
+    const total = lineas.reduce((acc, l) => acc + l.price * l.quantity, 0) + shippingCost;
+
+    // 1. CREAR EL PEDIDO EN LA DB (con los numeros calculados por el servidor)
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert({
         customer_name: formData?.name || 'Cliente Muska',
         customer_email: formData?.email || '',
         customer_phone: formData?.phone || '',
-        items: items,
-        total_amount: Number(total),
-        status: 'pending' 
+        items: lineas,
+        total_amount: total,
+        status: 'pending',
       })
       .select()
       .single();
@@ -50,9 +133,10 @@ export async function POST(request: Request) {
           html: orderConfirmationHtml({
             customerName: formData?.name || 'Cliente Muska',
             orderId: order.id,
-            total: Number(total),
-            trackingUrl: `${baseURL}/seguimiento?id=${order.id}`,
-            intro: 'Recibimos tu pedido correctamente. Cuando se acredite el pago te lo confirmamos por este mismo medio. Mientras tanto, guardá tu ID de seguimiento:',
+            total,
+            trackingUrl: `${BASE_URL}/seguimiento?id=${order.id}`,
+            intro:
+              'Recibimos tu pedido correctamente. Cuando se acredite el pago te lo confirmamos por este mismo medio. Mientras tanto, guardá tu ID de seguimiento:',
           }),
         });
       } catch (mailError) {
@@ -61,56 +145,43 @@ export async function POST(request: Request) {
       }
     }
 
-    // 2. PREPARAR ITEMS PARA MERCADO PAGO
-    const itemsMP = items.map((item: any) => ({
-      id: item.id, // ID DE SUPABASE PARA EL WEBHOOK
-      title: item.name,
-      unit_price: Number(item.price),
-      quantity: Number(item.quantity),
+    // 2. PREFERENCIA DE MERCADO PAGO, con los precios de la base
+    const itemsMP = lineas.map((l) => ({
+      id: l.id, // ID DE SUPABASE PARA EL WEBHOOK
+      title: l.name,
+      unit_price: l.price,
+      quantity: l.quantity,
       currency_id: 'ARS',
     }));
 
-    if (Number(shippingCost) > 0) {
-      itemsMP.push({
-        id: 'shipping-cost',
-        title: `Envío: ${formData?.province || 'Domicilio'}`,
-        unit_price: Number(shippingCost),
-        quantity: 1,
-        currency_id: 'ARS',
-      });
-    }
-
-    // 3. CREAR PREFERENCIA EN MERCADO PAGO
     const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         items: itemsMP,
-        external_reference: order.id, 
+        external_reference: order.id,
         payer: {
           name: formData?.name || 'Cliente',
           email: formData?.email || '',
-          phone: {
-            number: formData?.phone || ""
-          }
+          phone: { number: formData?.phone || '' },
         },
         back_urls: {
-          success: `${baseURL}/checkout/success`,
-          failure: `${baseURL}/checkout/failure`,
-          pending: `${baseURL}/checkout/pending`
+          success: `${BASE_URL}/checkout/success`,
+          failure: `${BASE_URL}/checkout/failure`,
+          pending: `${BASE_URL}/checkout/pending`,
         },
-        auto_return: "approved",
+        auto_return: 'approved',
         metadata: {
           order_id: order.id,
           client_name: formData?.name,
           client_email: formData?.email,
-          client_phone: formData?.phone
+          client_phone: formData?.phone,
         },
-        notification_url: `${baseURL}/api/webhooks/mercadopago`,
-        statement_descriptor: "MUSKA HOME",
+        notification_url: `${BASE_URL}/api/webhooks/mercadopago`,
+        statement_descriptor: 'MUSKA HOME',
       }),
     });
 
@@ -122,7 +193,6 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ init_point: data.init_point });
-
   } catch (error: any) {
     console.error('Checkout Error:', error);
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
