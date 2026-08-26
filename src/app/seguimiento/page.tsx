@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { Package, ShoppingBag, CheckCircle, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getRecentOrders, type RecentOrder } from '@/lib/recentOrders';
@@ -12,17 +11,20 @@ export default function TrackingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recent, setRecent] = useState<RecentOrder[]>([]);
-  const supabase = createClient();
 
+  // Va contra /api/orders/[id], que usa service_role y devuelve solo id,
+  // status y customer_name. Antes esto leia la tabla `orders` con la anon
+  // key, lo que obligaba a dejarla abierta a cualquiera.
   const fetchOrder = async (id: string) => {
-    const { data, error: fetchError } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (fetchError) return null;
-    return data;
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(id)}`, {
+        cache: 'no-store',
+      });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
   };
 
   // Busca un pedido por ID (usado por el form, el link del mail y la lista de recientes).
@@ -55,30 +57,18 @@ export default function TrackingPage() {
     if (id) runSearch(id);
   }, []);
 
+  // El realtime de Supabase necesitaba que `orders` fuera legible por el
+  // anonimo. Sacada esa politica, refrescamos con un sondeo cada 30s.
   useEffect(() => {
     if (!order?.id) return;
 
-    const channel = supabase
-      .channel(`order-changes-${order.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'orders',
-          filter: `id=eq.${order.id}`,
-        },
-        (payload) => {
-          console.log('Cambio detectado en tiempo real:', payload.new);
-          setOrder(payload.new);
-        }
-      )
-      .subscribe();
+    const timer = setInterval(async () => {
+      const fresco = await fetchOrder(order.id);
+      if (fresco) setOrder(fresco);
+    }, 30000);
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [order?.id, supabase]);
+    return () => clearInterval(timer);
+  }, [order?.id]);
 
   // Pasos actualizados a la nueva temática
   const steps = [
