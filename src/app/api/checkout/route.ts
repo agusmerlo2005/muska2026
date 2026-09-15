@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createHmac } from 'crypto';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { z } from 'zod';
 import { orderConfirmationHtml } from '@/components/emails/templates';
@@ -7,6 +8,61 @@ import { orderConfirmationHtml } from '@/components/emails/templates';
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const BASE_URL = 'https://muska2026.vercel.app';
+
+// Una persona real no inicia 5 checkouts en 10 minutos; un script si.
+const MAX_INTENTOS = 5;
+const VENTANA_MS = 10 * 60 * 1000;
+const RETENCION_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Registra el intento y dice si esta IP ya se paso del limite.
+ *
+ * La IP se guarda como HMAC (con la service role key de pepper) para no
+ * almacenar IPs en claro. Si se rota la key, los contadores arrancan de cero,
+ * que no le hace mal a nadie.
+ *
+ * Falla abierto: si la tabla no existe o Supabase tira error, se deja pasar.
+ * Preferimos aguantar un spam antes que perder una venta por un bug del limite.
+ */
+async function superaLimite(request: Request, supabase: SupabaseClient): Promise<boolean> {
+  try {
+    // En Vercel el primer valor de x-forwarded-for es la IP real del cliente.
+    const ip =
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      request.headers.get('x-real-ip') ||
+      'desconocida';
+
+    const ipHash = createHmac('sha256', process.env.SUPABASE_SERVICE_ROLE_KEY!)
+      .update(ip)
+      .digest('hex');
+
+    const ahora = Date.now();
+
+    const { error: insertError } = await supabase
+      .from('checkout_attempts')
+      .insert({ ip_hash: ipHash });
+    if (insertError) throw insertError;
+
+    const { count, error: countError } = await supabase
+      .from('checkout_attempts')
+      .select('id', { count: 'exact', head: true })
+      .eq('ip_hash', ipHash)
+      .gte('created_at', new Date(ahora - VENTANA_MS).toISOString());
+    if (countError) throw countError;
+
+    // Limpieza de lo viejo; si falla no pasa nada, se borra en el proximo intento.
+    await supabase
+      .from('checkout_attempts')
+      .delete()
+      .lt('created_at', new Date(ahora - RETENCION_MS).toISOString());
+
+    return (count ?? 0) > MAX_INTENTOS;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : JSON.stringify(err);
+    console.error('[checkout] limite de intentos no disponible, se deja pasar:', message);
+    return false;
+  }
+}
 
 /**
  * Del carrito aceptamos UNICAMENTE que se compra y cuanta cantidad.
@@ -38,6 +94,19 @@ const checkoutSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    // Antes de validar nada: los intentos con body invalido tambien cuentan.
+    if (await superaLimite(request, supabase)) {
+      return NextResponse.json(
+        { error: 'Hiciste muchos intentos seguidos. Espera unos minutos y proba de nuevo.' },
+        { status: 429 }
+      );
+    }
+
     const parsed = checkoutSchema.safeParse(await request.json());
 
     if (!parsed.success) {
@@ -52,11 +121,6 @@ export async function POST(request: Request) {
     for (const item of items) {
       pedidas.set(item.id, (pedidas.get(item.id) ?? 0) + item.quantity);
     }
-
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
 
     // FUENTE DE VERDAD: precio y stock salen de la base, no del navegador.
     const { data: productos, error: productsError } = await supabase
